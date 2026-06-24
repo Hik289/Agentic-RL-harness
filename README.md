@@ -2,11 +2,32 @@
 
 English | [简体中文](README_zh-CN.md)
 
-Learning to Harness studies agent performance at the harness layer: keep the
-LLM executor fixed, change the outer-loop control policy, and ask whether
-better harness decisions produce better task outcomes. This repository
-releases the code for modeling harness control as a reinforcement-learning
-problem with rubric-shaped reward and process-level evaluation.
+[![GitHub Repo](https://img.shields.io/badge/GitHub-Repo-181717?logo=github)](https://github.com/Hik289/Agentic-RL-harness)
+[![Results](https://img.shields.io/badge/Results-v2__heldout%20formal-0A66C2)](https://github.com/Hik289/Agentic-RL-harness/blob/main/results/tables/main_table_v2_heldout_formal.md)
+[![License](https://img.shields.io/badge/License-MIT-2ea44f)](https://github.com/Hik289/Agentic-RL-harness/blob/main/LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://github.com/Hik289/Agentic-RL-harness/blob/main/pyproject.toml)
+[![Docs](https://img.shields.io/badge/Docs-%E4%B8%AD%E6%96%87-d73a49)](https://github.com/Hik289/Agentic-RL-harness/blob/main/README_zh-CN.md)
+
+Quick links: [Repository](https://github.com/Hik289/Agentic-RL-harness) |
+[Results table](https://github.com/Hik289/Agentic-RL-harness/blob/main/results/tables/main_table_v2_heldout_formal.md) |
+[Chinese README](https://github.com/Hik289/Agentic-RL-harness/blob/main/README_zh-CN.md) |
+[Citation](#citation)
+
+Paper status: preprint link coming soon. The current release includes the full
+codebase, reproducible local benchmark, and released `v2_heldout` result
+tables.
+
+Many LLM-agent evaluations conflate model capability with harness design. In
+practice, the same underlying model can look weak or strong depending on how
+the outer loop decides when to search, draft, verify, revise, and submit.
+Learning to Harness starts from the thesis that harness control is itself an
+optimization problem and should be studied directly rather than treated as a
+fixed implementation detail.
+
+This repository releases that view as runnable code: keep the LLM executor
+fixed, model the outer-loop harness as a reinforcement-learning problem, and
+measure not only final task quality but also process maturity under a fixed
+interaction budget.
 
 The project focuses on:
 
@@ -18,6 +39,51 @@ The released local benchmark currently covers six synthetic domains:
 `knowledge_work`, `coding`, `research`, `multi_tool`, `long_memory`, and
 `planning`. The repository supports both deterministic mock-mode reproduction
 and Azure-backed runs with a fixed LLM executor.
+
+## Docs Navigation
+
+| Topic | Start here | Why it matters |
+|---|---|---|
+| Overview | [Method at a Glance](#method-at-a-glance) | The core thesis and what is being optimized |
+| Benchmark | [Benchmark and Data](#benchmark-and-data) | Domains, heldout split, and mock-data layout |
+| Results | [Results Snapshot](#results-snapshot) | Released `v2_heldout` numbers and result artifacts |
+| Reproduction | [Running Main Benchmarks](#running-main-benchmarks) | End-to-end `collect -> train -> eval` commands |
+| Code map | [Repository Map](#repository-map) | Where the harness, reward, RL, and scripts live |
+| Paper metadata | [Citation](#citation) | BibTeX and release metadata |
+
+## Method at a Glance
+
+The repository separates three things that are often collapsed together in
+agent evaluations:
+
+- the fixed LLM executor
+- the harness policy that decides what to do next
+- the reward and process metrics used to score trajectories
+
+The default Base Harness is scripted. On top of it, the repository trains a
+lightweight Offline Advantage-Weighted controller that learns a
+state-conditioned policy over harness decisions. Reward combines rubric score,
+verification, format, and task-level signals with explicit penalties for
+errors, cost, and early submission.
+
+This release also treats process quality as a first-class target. In addition
+to final return `G`, it tracks Harness Maturity Score (HMS), which measures
+whether a policy exhibits better search, checking, revision, and submission
+behavior instead of merely getting lucky on final answers.
+
+## Benchmark and Data
+
+The current local release is built around a deterministic synthetic benchmark
+that is easy to reproduce without external dependencies.
+
+- Domains: `knowledge_work`, `coding`, `research`, `multi_tool`,
+  `long_memory`, `planning`
+- Data roots: `data/synthetic_tasks_main_v2_heldout` and related mock-data
+  variants under `data/`
+- Split design: the `v2_heldout` setup changes evaluation templates relative
+  to training templates
+- Outputs: run artifacts land under `results/`, with released summary tables in
+  `results/tables/`
 
 ## 0. Host Requirements
 
@@ -99,7 +165,7 @@ For Azure mode, set:
 - `scripts/` contains setup, mock-data generation, environment checks, and
   benchmark aggregation helpers.
 
-## Current v2 Heldout Results
+## Results Snapshot
 
 The local `v2_heldout` benchmark uses deterministic mock-mode execution and a
 heldout-template split (`data/synthetic_tasks_main_v2_heldout`) so evaluation
@@ -124,8 +190,16 @@ Generated tables:
 
 - `results/tables/main_table_v2_heldout_formal.md`
 - `results/tables/main_table_v2_heldout_formal.csv`
+- `results/tables/main_table_v2_heldout_formal.json`
 - `results/tables/main_table_v2_heldout_base_clone_formal.md`
 - `results/tables/main_table_v2_heldout_base_clone_formal.csv`
+
+Released result links:
+
+- [Main table (Markdown)](https://github.com/Hik289/Agentic-RL-harness/blob/main/results/tables/main_table_v2_heldout_formal.md)
+- [Main table (CSV)](https://github.com/Hik289/Agentic-RL-harness/blob/main/results/tables/main_table_v2_heldout_formal.csv)
+- [Main table (JSON)](https://github.com/Hik289/Agentic-RL-harness/blob/main/results/tables/main_table_v2_heldout_formal.json)
+- [Base-clone ablation (Markdown)](https://github.com/Hik289/Agentic-RL-harness/blob/main/results/tables/main_table_v2_heldout_base_clone_formal.md)
 
 ## Running Main Benchmarks
 
@@ -215,15 +289,15 @@ calls are required.
 
 ## Where To Go Next
 
-| If you want to... | Start here |
-|---|---|
-| sanity-check the environment and wiring | `bash scripts/run_local_smoke.sh` and `examples/anchor_1_api_check.py` |
-| understand the fixed Base Harness | `examples/anchor_2_base_harness.py` and `code/harness/agent.py` |
-| inspect reward shaping and penalties | `examples/anchor_4_reward_aggregator.py` and `code/reward/reward_aggregator.py` |
-| run a small Offline AW experiment | `examples/anchor_5_offline_aw.py` |
-| run the full per-domain benchmark driver | `examples/running_main_driver.py` |
-| inspect process-maturity events and HMS logic | `examples/anchor_6_hms_detector.py` and `code/modules/hms_detector.py` |
-| aggregate released results into tables | `scripts/aggregate_benchmark_results.py` and `results/tables/` |
+| Topic | Read this | Run this | Outcome |
+|---|---|---|---|
+| Method | `code/harness/agent.py`, `code/rl/offline_aw.py`, `code/reward/reward_aggregator.py` | `examples/anchor_4_reward_aggregator.py` | Understand the Base Harness, learned controller, and reward design |
+| Data | `scripts/bootstrap_mock_data.py`, `data/mock_data_summary.json` | `python scripts/bootstrap_mock_data.py --variant v2_heldout --overwrite` | Recreate the local synthetic benchmark inputs |
+| Results | `results/tables/main_table_v2_heldout_formal.md`, `examples/main_table_analysis.py` | `python examples/c7_sensitivity_analysis.py` | Inspect released metrics, tables, and threshold re-scoring |
+| Reproduction | `examples/running_main_driver.py` | Use the `v2_heldout` command block above | Reproduce `collect -> train -> eval` per domain |
+| Smoke test | `scripts/run_local_smoke.sh` | `bash scripts/run_local_smoke.sh` | Validate the full local runtime path quickly |
+| API mode | `examples/anchor_1_api_check.py`, `.env.example` | `.venv/bin/python examples/anchor_1_api_check.py` | Confirm Azure-backed mode before longer runs |
+| Process metrics | `code/modules/hms_detector.py`, `examples/anchor_6_hms_detector.py` | `.venv/bin/python examples/anchor_6_hms_detector.py` | Inspect HMS events and process-quality checks |
 
 ## Hyperparameters
 
