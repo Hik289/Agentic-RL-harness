@@ -1,0 +1,23 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+!.env.example
+
+# Local experiment artifacts
+data/
+results/
+outputs/
+runs/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+*.jsonl
+
+# Editor and notebook noise
+.ipynb_checkpoints/
+.vscode/
+.idea/

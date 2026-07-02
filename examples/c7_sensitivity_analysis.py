@@ -8,10 +8,10 @@ at three rushed-thresholds (0.25, 0.30, 0.35). Report:
 This is a pure re-scoring pass: no new LLM calls. Tests the C.7 spec
 design space, not whether AW "wins" — we report all numbers honestly.
 """
-import os
 from __future__ import annotations
 
 import json
+import os
 import statistics
 import sys
 from pathlib import Path

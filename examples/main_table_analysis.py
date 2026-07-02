@@ -10,11 +10,11 @@ Outputs (single JSON + markdown for fast read):
   - macro Δ over 6 domains (mean + 95% CI bootstrap over domains)
   - HMS per-event × per-domain fired-rate (base vs AW) → paper §5 Table 2 candidate
 """
-import os
 from __future__ import annotations
 
 import json
 import math
+import os
 import random
 import statistics
 import sys
