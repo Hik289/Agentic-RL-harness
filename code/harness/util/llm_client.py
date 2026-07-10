@@ -1,18 +1,13 @@
-"""Azure OpenAI gpt-5.4-mini client wrapper for the harness project.
+"""OpenAI-compatible chat-completions client wrapper for the harness project.
 
 All LLM calls in this project go through this wrapper.
 
 Reads credentials from env:
-  AZURE_OPENAI_ENDPOINT  (e.g. https://<your-resource>.services.ai.azure.com/openai/v1)
-  AZURE_OPENAI_API_KEY
-  AZURE_OPENAI_DEPLOYMENT  (default: gpt-5.4-mini)
-  AZURE_OPENAI_API_VERSION (default: 2024-12-01-preview; falls back to /openai/v1 path)
+  OPENAI_BASE_URL  (default: https://api.openai.com/v1)
+  OPENAI_API_KEY
+  OPENAI_MODEL     (default: gpt-5.4-mini)
 
-The endpoint provided ends in '/openai/v1' -> we use the OpenAI-compatible
-v1 path (the modern Azure 'Responses API' / 'v1' surface). We therefore use
-the regular `openai.OpenAI` client with base_url, not AzureOpenAI.
-
-Pricing (approx, for cost tracking only; verify against Azure portal):
+Pricing (approx, for cost tracking only; verify against your provider):
   Input  : 0.25 USD / 1M tokens
   Output : 2.00 USD / 1M tokens
 (gpt-5.4-mini placeholder rate; refine when real pricing confirmed.)
@@ -31,12 +26,18 @@ from openai import OpenAI, APIError, RateLimitError, APIConnectionError, APITime
 log = logging.getLogger(__name__)
 
 
-DEFAULT_ENDPOINT = "https://<your-resource>.services.ai.azure.com/openai/v1"
+DEFAULT_ENDPOINT = "https://api.openai.com/v1"
 DEFAULT_DEPLOYMENT = "gpt-5.4-mini"
 
-# Placeholder pricing for cost estimation. Refine when Azure billing confirmed.
-PRICE_INPUT_PER_1M = float(os.getenv("AZURE_PRICE_INPUT_PER_1M", "0.25"))
-PRICE_OUTPUT_PER_1M = float(os.getenv("AZURE_PRICE_OUTPUT_PER_1M", "2.00"))
+# Placeholder pricing for cost estimation. Refine for your provider/model.
+PRICE_INPUT_PER_1M = float(
+    os.getenv("OPENAI_PRICE_INPUT_PER_1M")
+    or os.getenv("AZURE_PRICE_INPUT_PER_1M", "0.25")
+)
+PRICE_OUTPUT_PER_1M = float(
+    os.getenv("OPENAI_PRICE_OUTPUT_PER_1M")
+    or os.getenv("AZURE_PRICE_OUTPUT_PER_1M", "2.00")
+)
 
 
 @dataclass
@@ -60,7 +61,7 @@ class CallResult:
 
 
 class LLMClient:
-    """Thin wrapper around Azure gpt-5.4-mini via OpenAI v1-compatible API."""
+    """Thin wrapper around any OpenAI-compatible chat-completions endpoint."""
 
     def __init__(
         self,
@@ -70,15 +71,29 @@ class LLMClient:
         timeout: float = 60.0,
         max_retries: int = 3,
     ):
-        self.endpoint = (endpoint or os.getenv("AZURE_OPENAI_ENDPOINT") or DEFAULT_ENDPOINT).rstrip("/")
-        self.api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
+        self.endpoint = (
+            endpoint
+            or os.getenv("OPENAI_BASE_URL")
+            or os.getenv("AZURE_OPENAI_ENDPOINT")
+            or DEFAULT_ENDPOINT
+        ).rstrip("/")
+        self.api_key = (
+            api_key
+            or os.getenv("OPENAI_API_KEY")
+            or os.getenv("AZURE_OPENAI_API_KEY")
+        )
         if not self.api_key:
-            raise RuntimeError("AZURE_OPENAI_API_KEY env var or api_key arg required.")
-        self.deployment = deployment or os.getenv("AZURE_OPENAI_DEPLOYMENT") or DEFAULT_DEPLOYMENT
+            raise RuntimeError("OPENAI_API_KEY env var or api_key arg required.")
+        self.deployment = (
+            deployment
+            or os.getenv("OPENAI_MODEL")
+            or os.getenv("AZURE_OPENAI_DEPLOYMENT")
+            or DEFAULT_DEPLOYMENT
+        )
         self.timeout = timeout
         self.max_retries = max_retries
 
-        # The endpoint ends in /openai/v1 — point OpenAI SDK at it directly.
+        # Point the OpenAI SDK at the configured compatible base URL.
         self._client = OpenAI(
             base_url=self.endpoint,
             api_key=self.api_key,

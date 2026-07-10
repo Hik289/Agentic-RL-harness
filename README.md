@@ -5,8 +5,6 @@
   <a href="https://arxiv.org/pdf/2607.05458"><img src="https://img.shields.io/badge/Paper-PDF-blue.svg" alt="Paper PDF"></a>
   <a href="https://github.com/Hik289/Agentic-RL-harness"><img src="https://img.shields.io/badge/GitHub-Code-black.svg" alt="GitHub code"></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+"></a>
-  <a href="#method"><img src="https://img.shields.io/badge/method-offline%20advantage%20weighted%20RL-orange" alt="Offline advantage-weighted RL"></a>
-  <a href="#configuration"><img src="https://img.shields.io/badge/llm-Azure%20OpenAI-lightgrey" alt="Azure OpenAI"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
 </p>
 
@@ -77,19 +75,19 @@ python examples/anchor_6_hms_detector.py
 │   └── rl/                   # offline AW training and domain harnesses
 ├── examples/                 # anchor checks, main driver, and analyses
 ├── figures/                  # README diagrams
-├── .env.example              # Azure OpenAI and path configuration
+├── .env.example              # API provider and path configuration
 ├── requirements.txt
 └── README.md
 ```
 
 ## Configuration
 
-The LLM client reads Azure OpenAI configuration from the environment:
+The LLM client reads a general OpenAI-compatible API configuration from the environment:
 
 ```bash
-export AZURE_OPENAI_ENDPOINT="https://<your-resource>.services.ai.azure.com/openai/v1"
-export AZURE_OPENAI_API_KEY="<your-api-key>"
-export AZURE_OPENAI_DEPLOYMENT="gpt-5.4-mini"
+export OPENAI_BASE_URL="https://api.openai.com/v1"
+export OPENAI_API_KEY="<your-api-key>"
+export OPENAI_MODEL="gpt-5.4-mini"
 export AGENTICRLHARNESS_DATA="./data"
 export AGENTICRLHARNESS_RESULTS="./results"
 ```

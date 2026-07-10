@@ -1,4 +1,4 @@
-"""Anchor 1: Azure gpt-5.4-mini stability check.
+"""Anchor 1: OpenAI-compatible API stability check.
 
 100 serial calls + 10 concurrent calls. Reports:
   * pass / fail counts
