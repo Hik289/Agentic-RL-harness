@@ -1,14 +1,16 @@
-# Learning to Harness
+# Learning to Control LLM Agent Harnesses with Offline Reinforcement Learning
 
 <p align="center">
+  <a href="https://arxiv.org/abs/2607.05458"><img src="https://img.shields.io/badge/arXiv-2607.05458-b31b1b.svg" alt="arXiv"></a>
+  <a href="https://arxiv.org/pdf/2607.05458"><img src="https://img.shields.io/badge/Paper-PDF-blue.svg" alt="Paper PDF"></a>
+  <a href="https://github.com/Hik289/Agentic-RL-harness"><img src="https://img.shields.io/badge/GitHub-Code-black.svg" alt="GitHub code"></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+"></a>
   <a href="#method"><img src="https://img.shields.io/badge/method-offline%20advantage%20weighted%20RL-orange" alt="Offline advantage-weighted RL"></a>
   <a href="#configuration"><img src="https://img.shields.io/badge/llm-Azure%20OpenAI-lightgrey" alt="Azure OpenAI"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
-  <a href="#citation"><img src="https://img.shields.io/badge/paper-coming%20soon-lightgrey" alt="Paper coming soon"></a>
 </p>
 
-Code release for **Learning to Harness: Rubric-Guided Outer-Loop RL for Agentic Harness Optimization**.
+Code release for **Learning to Control LLM Agent Harnesses with Offline Reinforcement Learning**.
 
 The project treats an agentic harness as an outer-loop control policy over a fixed LLM executor. A lightweight offline RL controller learns when to read, draft, verify, revise, retrieve evidence, and submit by optimizing rubric-grounded trajectory returns rather than changing the underlying LLM.
 
@@ -139,10 +141,14 @@ The single source of truth is `code/rl/offline_aw.py::AWConfig`.
 ## Citation
 
 ```bibtex
-@inproceedings{learningtoharness2026,
-  title  = {Learning to Harness: Rubric-Guided Outer-Loop RL for Agentic Harness Optimization},
-  author = {Anonymous},
-  year   = {2026}
+@misc{yi2026learningcontrolllmagentharnesses,
+  title         = {Learning to Control LLM Agent Harnesses with Offline Reinforcement Learning},
+  author        = {Haiwen Yi and Xinyuan Song},
+  year          = {2026},
+  eprint        = {2607.05458},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LG},
+  url           = {https://arxiv.org/abs/2607.05458}
 }
 ```
 
