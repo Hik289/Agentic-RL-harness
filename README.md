@@ -2,11 +2,10 @@
 
 <p align="center">
   <a href="https://arxiv.org/abs/2607.05458"><img src="https://img.shields.io/badge/arXiv-2607.05458-b31b1b.svg" alt="arXiv"></a>
-  <a href="https://arxiv.org/pdf/2607.05458"><img src="https://img.shields.io/badge/Paper-PDF-blue.svg" alt="Paper PDF"></a>
-  <a href="https://github.com/Hik289/Agentic-RL-harness"><img src="https://img.shields.io/badge/GitHub-Code-black.svg" alt="GitHub code"></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
 </p>
+
 
 Code release for **Learning to Control LLM Agent Harnesses with Offline Reinforcement Learning**.
 
