@@ -2,8 +2,8 @@
 
 <p align="center">
   <a href="https://arxiv.org/abs/2607.05458"><img src="https://img.shields.io/badge/arXiv-2607.05458-b31b1b.svg" alt="arXiv"></a>
-  <a href="#quick-start"><img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+"></a>
-  <a href="#license"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT license"></a>
+  <a href="requirements.txt"><img src="https://img.shields.io/badge/Python-3.10%2B-3776AB.svg" alt="Python 3.10+"></a>
 </p>
 
 
