@@ -15,6 +15,12 @@ The project treats an agentic harness as an outer-loop control policy over a fix
   <img src="figures/intuition.png" width="900" alt="Learning to Harness intuition">
 </p>
 
+## At a Glance
+
+- **Research question.** Can offline reinforcement learning choose better harness interventions for LLM agents without changing the base model?
+- **Core idea.** The harness is treated as a controllable policy over observation, verification, repair, and reward signals.
+- **What is included.** Synthetic domains, held-out benchmark settings, reward aggregation, detector checks, and main-table reproduction scripts.
+
 ## Method
 
 The main training routine is an offline advantage-weighted policy update over trajectories collected from a behavior harness.
@@ -23,7 +29,7 @@ The main training routine is an offline advantage-weighted policy update over tr
   <img src="figures/g1_offline_aw_pipeline.png" width="900" alt="Offline advantage-weighted policy pipeline">
 </p>
 
-## Highlights
+## Key Contributions
 
 - Outer-loop policy learning for agentic harnesses while keeping the base LLM fixed.
 - Rubric, verifier, format, task, cost, and early-submit terms in a single reward aggregator.
@@ -63,7 +69,7 @@ python examples/anchor_4_reward_aggregator.py
 python examples/anchor_6_hms_detector.py
 ```
 
-## Repository Layout
+## Repository Structure
 
 ```text
 .
