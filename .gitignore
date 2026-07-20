@@ -21,3 +21,21 @@ checkpoints/
 .ipynb_checkpoints/
 .vscode/
 .idea/
+
+# Shared research-artifact hygiene
+.AppleDouble
+._*
+*.swp
+*~
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
+venv/
+env/
+logs/
+wandb/
+*.log
+*.tmp
