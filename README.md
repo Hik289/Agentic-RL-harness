@@ -141,6 +141,10 @@ The single source of truth is `code/rl/offline_aw.py::AWConfig`.
 | Entropy coefficient | 0.01 |
 | Seeds per domain | 3 |
 
+## Reviewer Guide
+
+For a reviewer-oriented map of smoke checks, paper-scale entry points, data boundaries, and reporting metadata, see [Artifact Guide](docs/ARTIFACT.md).
+
 ## Artifact Checklist
 
 - **Code release.** Core implementations, configuration files, and reproduction entry points are versioned in this repository.
