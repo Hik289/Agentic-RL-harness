@@ -1,6 +1,6 @@
 """Anchor 3 — Rubric Judge calibration on 60 toy GT.
 
-PASS standard (Director upgrade 2026-06-10 21:15 UTC):
+Pass criteria:
   - per-domain Spearman ρ array (6 values) ALL ≥ 0.6
   - macro mean ρ ≥ 0.8
   - mid-tier-only macro Spearman ρ ≥ 0.5  (collapsed across domains; 18 mid GT)

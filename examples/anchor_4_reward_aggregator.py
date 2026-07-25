@@ -166,7 +166,7 @@ def test_aggregate_reward() -> list[dict]:
 
 def test_rubric_aggregation() -> dict:
     """Hand-checked criterion aggregation."""
-    # 4 criteria, total_max=7.5 (matches data_scientist's knowledge_work tasks)
+    # Four criteria with total_max=7.5, matching the knowledge-work task schema.
     criteria = [
         dict(id="c1", score=2.4, max_score=3.0, missing=False, category="correctness"),
         dict(id="c2", score=1.6, max_score=2.0, missing=False, category="evidence"),

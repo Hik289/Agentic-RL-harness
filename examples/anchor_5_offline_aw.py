@@ -1,11 +1,10 @@
 """Anchor 5 attempt 2 (Fork-α) — Offline AW vs Base Harness on toy coding.
 
-Director approval 2026-06-11 00:58 UTC (Fork-α): G := structural rubric_score_norm
+Fork-α defines G as the structural rubric_score_norm
 from harness/submission.py (test_runner + format + regex + cost_budget verifiers),
 NOT the LLM judge. This is the readme §14 task-specific verifier path, which
 is the canonical reward source for coding. Both Base and AW use the same G,
-preserving the Director's 21:15 hard constraint (no setup drift between
-Base and AW).
+so Base and AW use identical evaluation settings.
 
 Why not judge: attempt 1 + smoke showed gpt-5.4-mini one-shots all toy
 coding tasks (test_pass_rate ≈ 1.0), and judge mode="reward" cannot see
@@ -24,7 +23,7 @@ Plan:
     SAME structural G; report mean ± std + Welch t-test
   - PASS = (AW mean) − (Base mean) ≥ 0.05 over 3 seeds
 
-Director-mandated diagnostics in the report (00:58 UTC):
+Required report diagnostics:
   - buffer G distribution: mean / std / unique / saturation%
   - AW weight distribution: mean / max / std
   - HMS 7-event fired-rate + HMS_norm mean ± std for Base vs AW
@@ -347,7 +346,7 @@ def main():
     welch = welch_t_two_sample(aw_summary["per_seed_overall"],
                                 base_summary["per_seed_overall"])
 
-    # ── Step 4: HMS aggregation on eval rollouts (Director-required) ──
+    # ── Step 4: HMS aggregation on evaluation rollouts ──
     print(f"[anchor_5] computing HMS for {len(base_records)} Base + "
           f"{len(aw_records)} AW eval rollouts", flush=True)
     base_hms = hms_summary(base_records)

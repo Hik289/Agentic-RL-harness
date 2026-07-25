@@ -209,7 +209,6 @@ def act_run_tests(task: Task, *, code_blob: str) -> dict:
             except Exception as e:
                 failed += 1
                 errors.append(f"{tf.name}: {type(e).__name__} {e}")
-        total = passed + failed
         return dict(
             status="success",
             summary=f"tests: passed={passed} failed={failed}",

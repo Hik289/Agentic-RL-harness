@@ -104,7 +104,7 @@ def action_mask(logger: TrajectoryLogger) -> list[bool]:
         # cannot run_tests / revise / debug if no code yet
         for a in ("run_tests", "revise_code", "debug_error", "inspect_code"):
             mask[ACTION_TO_IDX[a]] = False
-    if not has_test:
+    if not has_test or not last_failed:
         mask[ACTION_TO_IDX["debug_error"]] = False
     if not has_code:
         # discourage submit before any code

@@ -1,4 +1,4 @@
-"""Main-table analysis bonus pack for data_scientist + theorist.
+"""Generate the main-table statistics and diagnostics.
 
 Inputs: 6 × main_{domain}/results.json + main_{domain}/eval_detail_{base,aw}.jsonl
 

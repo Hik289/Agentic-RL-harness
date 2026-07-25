@@ -1,6 +1,6 @@
 """RUNNING_MAIN driver — per-domain Base vs AW main-table experiment.
 
-Director-approved (2026-06-11 04:04 UTC) Fork-α':
+Fork-α' configuration:
   - Universal structural verifier (readme §14): G = submission.py
     rubric_score_norm for ALL 6 domains. No LLM judge in train or eval.
   - 100 task / domain (data/synthetic_tasks_main/{domain}/)

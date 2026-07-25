@@ -122,7 +122,7 @@ def compute_rubric_score(criteria_scores: list[dict]) -> dict:
     """Aggregate per-criterion scores → rubric_score_raw/norm + missing_items.
 
     criteria_scores: list of {id, score, max_score, missing(bool), category?}
-    Returns dict matching data_scientist's spec (rubric_design_spec.md A.4).
+    The returned dictionary follows ``rubric_design_spec.md`` Section A.4.
     """
     if not criteria_scores:
         return {

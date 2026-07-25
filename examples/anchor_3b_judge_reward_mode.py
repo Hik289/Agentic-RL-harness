@@ -1,8 +1,7 @@
 """Anchor 3b — RubricJudge mode="reward" calibration on 60 toy GT.
 
-Director-mandated (2026-06-11 00:26 UTC): before resuming anchor_5, verify
-that the reward-mode judge (which does NOT see reference/*.md) is still
-calibrated against annotators.
+Before running anchor_5, verify that the reward-mode judge, which does not see
+``reference/*.md``, remains calibrated against annotators.
 
 Invariants (relaxed from anchor_3 because reward mode loses reference info):
   - per-domain Spearman ρ ≥ 0.6

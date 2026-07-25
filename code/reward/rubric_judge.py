@@ -19,7 +19,7 @@ Implementation: ONE LLM call per task that scores all criteria together
 The judge is deterministic-ish (low temperature, n_repeats=1 default;
 n_repeats>1 averages criterion scores for higher reliability).
 
-## CRITICAL MODE BOUNDARY (Director 2026-06-10 23:48 UTC) ##
+## Mode boundary
 
 The judge runs in two mutually exclusive modes:
 
@@ -27,7 +27,7 @@ The judge runs in two mutually exclusive modes:
       The judge does NOT see reference/answer.md.  Reward must remain
       rooted in the rubric criteria themselves, not in
       similarity-to-reference.  This preserves the paper's Class R reward
-      property (theorist Thm 1 + paper §6 reward-hacking discussion).  All
+      property (Theorem 1 and the paper's reward-hacking discussion). All
       RL training / harness scoring / main-results eval uses this mode.
 
   * mode="calibration":
