@@ -15,11 +15,15 @@ The project treats an agentic harness as an outer-loop control policy over a fix
   <img src="figures/intuition.png" width="900" alt="Learning to Harness intuition">
 </p>
 
-## Repository Summary
+## At A Glance
 
-- **Scope.** Can offline reinforcement learning choose better harness interventions for LLM agents without changing the base model?
-- **Method.** The harness is treated as a controllable policy over observation, verification, repair, and reward signals.
-- **Contents.** Synthetic domains, held-out benchmark settings, reward aggregation, detector checks, and main-table reproduction scripts.
+| Artifact review question | Entry point |
+| --- | --- |
+| Research question | Can offline reinforcement learning choose better harness interventions for LLM agents without changing the base model? |
+| Core method | The harness is treated as a controllable policy over observation, verification, repair, and reward signals. |
+| Included artifacts | Synthetic domains, held-out benchmark settings, reward aggregation, detector checks, and main-table reproduction scripts. |
+| Fast validation | `python examples/anchor_4_reward_aggregator.py` and `python examples/anchor_6_hms_detector.py` |
+| Paper-scale reproduction | `python examples/running_main_driver.py` plus the main-table analysis scripts. |
 
 ## Method
 
