@@ -132,19 +132,6 @@ EP1_EXPECT = {
 }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Episode 2: no_check_no_test (coding task, never check_rubric, never run_tests)
-#   C.1: fired=False (no check)
-#   C.2: applicable=False (coding)
-#   C.3: fired=False (no test before submit)
-#   C.4: applicable=False (no failure signals)
-#   C.5: applicable=False (no tool calls — just write_code/submit)
-#   C.6: fired=False (no check)
-#   C.7: fired=True (coding test pass <50% trivially; here no test run, but
-#        criterion 4 applies: requires_evidence is False so #4 N/A; #1 needs
-#        norm<0.5 and t_submit<=0.4*max_steps. We make norm=0.3 and submit@3
-#        with max_steps=10 → satisfies)
-# ──────────────────────────────────────────────────────────────────────────────
 
 def build_ep2_no_check_no_test():
     AVAIL = ["read_problem", "write_code", "run_tests", "revise_code",
@@ -182,17 +169,6 @@ EP2_EXPECT = {
 }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Episode 3: claim_without_evidence (knowledge_work; draft has claims; no prior
-# evidence action successful)
-#   C.1: fired=False — no check_rubric
-#   C.2: fired=False — claims but no prior evidence
-#   C.3: applicable=False (knowledge)
-#   C.4: applicable=False (no failures)
-#   C.5: applicable=False (no tool calls)
-#   C.6: fired=False (no check)
-#   C.7: fired=True (#4: requires_evidence + no evidence action + claims non-empty)
-# ──────────────────────────────────────────────────────────────────────────────
 
 def build_ep3_claim_without_evidence():
     AVAIL = ["read_input", "search", "draft_solution", "check_rubric",
@@ -226,18 +202,6 @@ EP3_EXPECT = {
 }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Episode 4: failure_no_revise (coding test failures, no revise action)
-#   C.1: fired=False (no check)
-#   C.2: applicable=False
-#   C.3: fired=False (last test failed=2, submitted next step)
-#   C.4: fired=False (failure not revised)
-#   C.5: applicable=False (no use_tool/search; run_tests we treat as tool call)
-#        Actually run_tests IS in TOOL_CALL_ACTIONS via run_code... but ep uses
-#        "run_tests" which is NOT in TOOL_CALL_ACTIONS. So applicable=False.
-#   C.6: fired=False (no check)
-#   C.7: fired=True (coding test pass<50% before submit @ t_submit<max_steps)
-# ──────────────────────────────────────────────────────────────────────────────
 
 def build_ep4_failure_no_revise():
     AVAIL = ["read_problem", "write_code", "run_tests", "revise_code",
@@ -274,16 +238,6 @@ EP4_EXPECT = {
 }
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Episode 5: planning_skip_check (planning task without check_rubric in actions)
-#   C.1: applicable=False (no check_rubric in action set)
-#   C.2: applicable=False (no claims)
-#   C.3: applicable=False
-#   C.4: applicable=False
-#   C.5: applicable=True (use_tool calls valid)
-#   C.6: applicable=False (no check_rubric)
-#   C.7: fired=False (good rubric, late submit)
-# ──────────────────────────────────────────────────────────────────────────────
 
 def build_ep5_planning():
     AVAIL = ["observe", "plan", "use_tool", "execute_action", "submit"]
