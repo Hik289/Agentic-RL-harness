@@ -56,58 +56,30 @@ def _close(a: float, b: float, tol: float = TOL) -> bool:
 # ───────────────────────────────────────────────────────────────────────────────
 
 EPISODES = [
-    # ep_A: clean high-quality submission
-    # R_rubric = 0.90, R_verify = 0.95, R_format = 1.0, R_task = 0.80
-    # P_error = 0.0, P_cost = 0.20, P_early_submit = 0.0
-    # R_total = 0.90 + 0.20*0.95 + 0.10*1.0 + 0.20*0.80 - 0.25*0 - 0.05*0.20 - 0.10*0
-    #        = 0.90 + 0.190 + 0.100 + 0.160 - 0.000 - 0.010 - 0.000
-    #        = 1.340
     (
         "ep_A_clean_submit",
         dict(R_rubric=0.90, R_verify=0.95, R_format=1.0, R_task=0.80,
              P_error=0.0, P_cost=0.20, P_early_submit=0.0),
         1.340,
     ),
-    # ep_B: moderate, mild cost
-    # R_rubric=0.55, R_verify=0.60, R_format=0.5, R_task=0.40
-    # P_error=0.10, P_cost=0.60, P_early_submit=0.0
-    # R_total = 0.55 + 0.20*0.60 + 0.10*0.5 + 0.20*0.40
-    #          - 0.25*0.10 - 0.05*0.60 - 0.10*0
-    #        = 0.55 + 0.12 + 0.05 + 0.08 - 0.025 - 0.030 - 0.000
-    #        = 0.745
     (
         "ep_B_moderate",
         dict(R_rubric=0.55, R_verify=0.60, R_format=0.5, R_task=0.40,
              P_error=0.10, P_cost=0.60, P_early_submit=0.0),
         0.745,
     ),
-    # ep_C: errors + low rubric
-    # R_rubric=0.20, R_verify=0.10, R_format=0.0, R_task=0.0
-    # P_error=0.80, P_cost=0.40, P_early_submit=0.0
-    # R_total = 0.20 + 0.020 + 0.000 + 0.000 - 0.200 - 0.020 - 0.000
-    #        = 0.0
     (
         "ep_C_errors",
         dict(R_rubric=0.20, R_verify=0.10, R_format=0.0, R_task=0.0,
              P_error=0.80, P_cost=0.40, P_early_submit=0.0),
         0.0,
     ),
-    # ep_D: early submit triggered
-    # R_rubric=0.35, R_verify=0.30, R_format=1.0, R_task=0.10
-    # P_error=0.0, P_cost=0.10, P_early_submit=1.0
-    # R_total = 0.35 + 0.060 + 0.100 + 0.020 - 0 - 0.005 - 0.100
-    #        = 0.425
     (
         "ep_D_early_submit",
         dict(R_rubric=0.35, R_verify=0.30, R_format=1.0, R_task=0.10,
              P_error=0.0, P_cost=0.10, P_early_submit=1.0),
         0.425,
     ),
-    # ep_E: perfect rubric but cost saturates at 1.0 (over budget)
-    # R_rubric=1.0, R_verify=1.0, R_format=1.0, R_task=1.0
-    # P_error=0.0, P_cost=1.0, P_early_submit=0.0
-    # R_total = 1.0 + 0.20 + 0.10 + 0.20 - 0 - 0.05 - 0
-    #        = 1.45
     (
         "ep_E_perfect_overcost",
         dict(R_rubric=1.0, R_verify=1.0, R_format=1.0, R_task=1.0,
