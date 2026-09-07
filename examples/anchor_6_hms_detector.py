@@ -83,10 +83,6 @@ def _set_meta(ep, task_type, available_tools, max_steps=10, cost_budget=1.0,
     return ep
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Episode 1: clean submit (knowledge_work)
-#   Events: C.1=True, C.2=True, C.3=N/A, C.4=N/A, C.5=True, C.6=True, C.7=False
-# ──────────────────────────────────────────────────────────────────────────────
 
 def build_ep1_clean_submit():
     AVAIL = ["read_input", "search", "draft_solution", "check_rubric",

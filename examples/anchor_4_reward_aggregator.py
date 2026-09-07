@@ -50,10 +50,6 @@ def _close(a: float, b: float, tol: float = TOL) -> bool:
     return math.isclose(a, b, rel_tol=0, abs_tol=tol)
 
 
-# ───────────────────────────────────────────────────────────────────────────────
-# 5 hand-computed episodes.
-# Each tuple = (label, inputs_dict, expected_R_total)
-# ───────────────────────────────────────────────────────────────────────────────
 
 EPISODES = [
     (
