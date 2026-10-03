@@ -29,10 +29,6 @@ The project treats an agentic harness as an outer-loop control policy over a fix
 
 The main training routine is an offline advantage-weighted policy update over trajectories collected from a behavior harness.
 
-<p align="center">
-  <img src="figures/g1_offline_aw_pipeline.png" width="900" alt="Offline advantage-weighted policy pipeline">
-</p>
-
 ## Key Contributions
 
 - Outer-loop policy learning for agentic harnesses while keeping the base LLM fixed.

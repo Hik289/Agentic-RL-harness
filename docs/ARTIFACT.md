@@ -29,7 +29,6 @@ No single reproduction runner is tracked. Use the README commands and keep first
 
 ## Figure Assets
 
-- `figures/g1_offline_aw_pipeline.png`
 - `figures/intuition.png`
 
 ## Data And Outputs
