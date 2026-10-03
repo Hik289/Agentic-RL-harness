@@ -1,15 +1,3 @@
-"""Generate the main-table statistics and diagnostics.
-
-Inputs: 6 × main_{domain}/results.json + main_{domain}/eval_detail_{base,aw}.jsonl
-
-Outputs (single JSON + markdown for fast read):
-  - per-domain Base/AW G mean ± std, ΔG, paired bootstrap p, CI95
-  - per-domain Base/AW HMS_norm mean ± std, ΔHMS (95% CI via boostrap on per-episode hms_norm)
-  - sign test on ΔG sign-pattern (binomial 6/n)
-  - sign test on ΔHMS sign-pattern
-  - macro Δ over 6 domains (mean + 95% CI bootstrap over domains)
-  - HMS per-event × per-domain fired-rate (base vs AW) → paper §5 Table 2 candidate
-"""
 from __future__ import annotations
 
 import json
@@ -30,7 +18,6 @@ EVENTS = ["CheckBeforeSubmit", "EvidenceBeforeClaim", "TestBeforeSubmit",
 
 
 def _binom_p_two_sided(k: int, n: int, p: float = 0.5) -> float:
-    """Exact two-sided binomial p-value."""
     pmf = [math.comb(n, i) * (p**i) * ((1-p)**(n-i)) for i in range(n+1)]
     obs = pmf[k]
     return sum(v for v in pmf if v <= obs + 1e-12)
@@ -81,7 +68,6 @@ def main():
         res = json.loads((ROOT / f"main_{d}" / "results.json").read_text())
         per_domain[d] = res
 
-    # ── G analysis ──
     G_table = []
     base_means, aw_means = [], []
     for d in DOMAINS:
@@ -114,7 +100,6 @@ def main():
     }
     macro_G_delta_stats = _bootstrap_ci(delta_Gs)
 
-    # ── HMS analysis ──
     HMS_table = []
     delta_HMSs = []
     for d in DOMAINS:
@@ -138,7 +123,6 @@ def main():
     }
     macro_HMS_delta_stats = _bootstrap_ci(delta_HMSs)
 
-    # ── HMS per-event × per-domain Table 2 ──
     event_table = []
     for ev in EVENTS:
         row = {"event": ev}
@@ -157,7 +141,6 @@ def main():
             }
         event_table.append(row)
 
-    # ── Save outputs ──
     out = {
         "per_domain_G": G_table,
         "per_domain_HMS": HMS_table,
@@ -178,7 +161,6 @@ def main():
     out_path.write_text(json.dumps(out, indent=2, default=str))
     print(f"wrote {out_path}")
 
-    # ── Pretty markdown ──
     md = []
     md.append("# Main Table — 6-domain Base vs Offline AW")
     md.append("")

@@ -1,21 +1,3 @@
-"""Generic per-domain harness for research / multi_tool / long_memory / planning.
-
-Each domain has its own action space (read from task.available_tools), but
-all domains follow the same skeleton:
-
-  Base policy template (one of):
-    - research: search → search → draft_answer → check_rubric → submit
-    - multi_tool: observe → use_tool(read_pdf) → use_tool(extract_table)
-                  → use_tool(calculator) → draft_solution → check_rubric → submit
-    - long_memory: search_memory → search_memory → draft (answer_question) → submit
-    - planning: observe → draft_solution → verify_solution → submit
-
-The harness:
-  - Takes a domain string and looks up its action space + base policy seq.
-  - Executes generic actions (search/draft/check/etc) via harness/actions.py.
-  - Emits B.1 trajectory records.
-  - Same MLP policy / state featurization as KW.
-"""
 from __future__ import annotations
 
 import logging
@@ -36,7 +18,6 @@ from .policy import MLPPolicy, masked_probs, sample_action
 log = logging.getLogger(__name__)
 
 
-# Domain → action space (must match task.json available_tools order)
 DOMAIN_ACTION_SPACE = {
     "research": [
         "search", "open_source", "extract_claims", "compare_sources",
@@ -57,12 +38,8 @@ DOMAIN_ACTION_SPACE = {
     ],
 }
 
-# State dim is always 10 + len(action_space) (one-hot last action).
-# To keep MLPPolicy compatible across domains (it's 18-dim), we pad action
-# space to length 8 with no-op slots.
 PAD_ACTION_DIM = 8
 
-# Domain → base policy sequence (what Base Harness does)
 DOMAIN_BASE_SEQ = {
     "research": ["search", "search", "draft_answer", "check_rubric", "submit"],
     "multi_tool": ["observe", "use_tool_read_pdf", "use_tool_extract_table",
@@ -88,8 +65,6 @@ def domain_action_space(domain: str) -> list[str]:
 def domain_action_to_idx(domain: str) -> dict[str, int]:
     return {a: i for i, a in enumerate(domain_action_space(domain))}
 
-
-# ── Featurizer (10 numeric + 8 one-hot) ────────────────────────────────────
 
 def featurize_state(*, step: int, max_steps: int,
                     cost_so_far: float, cost_budget: float,
@@ -161,12 +136,8 @@ def trajectory_to_features(records: list, n_criteria: int,
     return pairs
 
 
-# ── Action execution ─────────────────────────────────────────────────────
-
 def _exec_action(domain: str, action: str, task: Task,
                  logger: TrajectoryLogger, client: LLMClient) -> dict:
-    """Map domain-specific action name → harness/actions.py call."""
-    # All domains share: check_rubric, submit
     if action == "check_rubric":
         return A.act_check_rubric(task, draft_state=logger.draft_state)
     if action == "submit":
@@ -248,8 +219,6 @@ def _exec_action(domain: str, action: str, task: Task,
     return dict(status="error", summary=f"unknown action {action} for domain {domain}", cost=0.0)
 
 
-# ── Action mask ──────────────────────────────────────────────────────────
-
 def action_mask(domain: str, logger: TrajectoryLogger) -> list[bool]:
     space = domain_action_space(domain)
     a2i = domain_action_to_idx(domain)
@@ -258,19 +227,15 @@ def action_mask(domain: str, logger: TrajectoryLogger) -> list[bool]:
     if submitted:
         return [False] * len(space)
     mask = [True] * len(space)
-    # Don't allow check_rubric / verify_solution / submit before draft
     for blocked in ("check_rubric", "verify_solution", "submit",
                     "revise_solution", "cite_sources"):
         if not has_draft and blocked in a2i:
             mask[a2i[blocked]] = False
-    # Pad slots not selectable
     for k, idx in a2i.items():
         if k.startswith("__noop_"):
             mask[idx] = False
     return mask
 
-
-# ── Policy factories ────────────────────────────────────────────────────
 
 PolicyFn = Callable[[list[float], list[bool], "EnvContext"], str]
 
@@ -290,8 +255,6 @@ def base_harness_policy(domain: str) -> PolicyFn:
     a2i = domain_action_to_idx(domain)
 
     def _picker(state: list[float], mask: list[bool], ctx: EnvContext) -> str:
-        # Use the current step count to index into the seq directly.
-        # This handles duplicates (e.g. research seq has [search, search,...]).
         i = ctx.step
         if i < len(seq):
             nxt = seq[i]
@@ -329,8 +292,6 @@ def _first_legal(mask: list[bool], space: list[str]) -> str:
             return a
     return "submit"
 
-
-# ── State + Episode runner ───────────────────────────────────────────────
 
 def _state_vec(task: Task, logger: TrajectoryLogger,
                last_action: str | None, error_count: int,

@@ -1,15 +1,3 @@
-"""Coding-domain Harness runner: drives the action loop with a policy.
-
-This mirrors harness/agent.py:run_episode but is specialized to the
-coding action space and accepts a `policy_callable(state, mask) -> action_name`.
-
-Three policies are supported via factory functions:
-  - base_harness_policy()        — fixed scripted policy (no LLM controller)
-  - perturbed_base_policy(eps)   — eps-greedy perturbation of Base
-  - mlp_policy(net, rng, ...)    — wraps an MLPPolicy + action mask
-
-All emit B.1 trajectory records via TrajectoryLogger.
-"""
 from __future__ import annotations
 
 import logging
@@ -33,16 +21,11 @@ from .policy import MLPPolicy, masked_probs, sample_action
 log = logging.getLogger(__name__)
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# Action execution (coding subset)
-# ────────────────────────────────────────────────────────────────────────────
-
 def _exec_action(action: str, task: Task, logger: TrajectoryLogger,
                  client: LLMClient) -> dict:
     if action == "read_problem":
         return A.act_read_problem(task)
     if action == "inspect_code":
-        # alias for re-reading the code blob (cheap, no LLM)
         cb = logger.draft_state.get("code_blob") or ""
         return dict(status="success",
                     summary=f"inspect_code: {len(cb)} chars",
@@ -53,7 +36,6 @@ def _exec_action(action: str, task: Task, logger: TrajectoryLogger,
         return A.act_run_tests(task,
                                code_blob=logger.draft_state.get("code_blob") or "")
     if action == "debug_error":
-        # cheap reflective op: read last test errors
         errs = []
         for r in reversed(logger.records):
             tr = (r.get("observation") or {}).get("test_results")
@@ -80,13 +62,7 @@ def _exec_action(action: str, task: Task, logger: TrajectoryLogger,
     return dict(status="error", summary=f"unknown action {action}", cost=0.0)
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# Action mask: keep policy from picking obviously-invalid actions
-# ────────────────────────────────────────────────────────────────────────────
-
 def action_mask(logger: TrajectoryLogger) -> list[bool]:
-    """Return a boolean mask over CODING_ACTION_SPACE indicating which
-    actions are currently legal."""
     has_code = bool(logger.draft_state.get("code_blob"))
     has_test = any((r.get("observation") or {}).get("test_results")
                    for r in logger.records)
@@ -101,27 +77,20 @@ def action_mask(logger: TrajectoryLogger) -> list[bool]:
         return [False] * len(CODING_ACTION_SPACE)
     mask = [True] * len(CODING_ACTION_SPACE)
     if not has_code:
-        # cannot run_tests / revise / debug if no code yet
         for a in ("run_tests", "revise_code", "debug_error", "inspect_code"):
             mask[ACTION_TO_IDX[a]] = False
     if not has_test or not last_failed:
         mask[ACTION_TO_IDX["debug_error"]] = False
     if not has_code:
-        # discourage submit before any code
         mask[ACTION_TO_IDX["submit"]] = False
     return mask
 
-
-# ────────────────────────────────────────────────────────────────────────────
-# Episode runner that takes a policy callable
-# ────────────────────────────────────────────────────────────────────────────
 
 PolicyFn = Callable[[list[float], list[bool], "EnvContext"], str]
 
 
 @dataclass
 class EnvContext:
-    """Per-step info handed to policy callable beyond (state, mask)."""
     task_id: str
     step: int
     last_action: str | None
@@ -168,7 +137,6 @@ def run_episode_with_policy(task: Task, policy_fn: PolicyFn, *,
         state = _state_vec(task, logger, last_action, error_count, last_test)
         mask = action_mask(logger)
         if not any(mask):
-            # nothing legal → force submit
             logger.log_step(action="submit", args={}, status="success",
                             summary="forced submit (no legal action)", cost=0.0)
             logger.finalize(termination_reason="submit")
@@ -176,9 +144,7 @@ def run_episode_with_policy(task: Task, policy_fn: PolicyFn, *,
         ctx = EnvContext(task_id=task.task_id, step=len(logger.records),
                           last_action=last_action, rng=rng)
         action = policy_fn(state, mask, ctx)
-        # safety: ensure picked action passes mask
         if not mask[ACTION_TO_IDX[action]]:
-            # fall back to first legal action
             for i, ok in enumerate(mask):
                 if ok:
                     action = CODING_ACTION_SPACE[i]
@@ -206,7 +172,6 @@ def run_episode_with_policy(task: Task, policy_fn: PolicyFn, *,
             break
     else:
         if not logger.records or not logger.records[-1].get("terminal"):
-            # force final submit if hit max_steps
             logger.log_step(action="submit", args={}, status="success",
                             summary="forced submit at max_steps", cost=0.0)
             logger.finalize(termination_reason="max_steps")
@@ -225,19 +190,12 @@ def run_episode_with_policy(task: Task, policy_fn: PolicyFn, *,
     return logger, scored
 
 
-# ────────────────────────────────────────────────────────────────────────────
-# Policy factories
-# ────────────────────────────────────────────────────────────────────────────
-
 _BASE_SEQ = ["read_problem", "write_code", "run_tests", "submit"]
 
 
 def base_harness_policy() -> PolicyFn:
-    """Fixed scripted policy: read_problem → write_code → run_tests → (revise → run_tests)? → submit."""
     def _picker(state: list[float], mask: list[bool], ctx: EnvContext) -> str:
         last = ctx.last_action
-        # if last action was run_tests with failures and we still have steps
-        # find in records via state vector last_test fields? Simpler: detect via last_action
         if last is None:
             return "read_problem" if mask[ACTION_TO_IDX["read_problem"]] else _first_legal(mask)
         if last == "read_problem":
@@ -245,8 +203,6 @@ def base_harness_policy() -> PolicyFn:
         if last == "write_code":
             return "run_tests" if mask[ACTION_TO_IDX["run_tests"]] else "submit"
         if last == "run_tests":
-            # Inspect last_test_pass_rate from state vector (index 8)
-            # If failed (pass<1.0 and pass>=0) try revise; else submit
             pr = state[8]
             if 0.0 <= pr < 1.0 and mask[ACTION_TO_IDX["revise_code"]]:
                 return "revise_code"
@@ -258,11 +214,9 @@ def base_harness_policy() -> PolicyFn:
 
 
 def perturbed_base_policy(eps: float = 0.25, seed: int = 0) -> PolicyFn:
-    """ε-greedy perturbation of Base Harness for behavioral data collection."""
     base = base_harness_policy()
     def _picker(state: list[float], mask: list[bool], ctx: EnvContext) -> str:
         if ctx.rng.random() < eps:
-            # uniform random over legal actions
             legal = [a for a, ok in zip(CODING_ACTION_SPACE, mask) if ok]
             return ctx.rng.choice(legal) if legal else "submit"
         return base(state, mask, ctx)

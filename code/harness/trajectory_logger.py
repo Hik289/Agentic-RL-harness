@@ -1,25 +1,3 @@
-"""Trajectory logger — emits records per data/rubric_design_spec.md §B.1.
-
-Each step record:
-{
-  "task_id": ...,
-  "episode_id": ...,
-  "step": int,
-  "action": str,
-  "args": dict,
-  "observation": {status, summary, extracted_facts?, test_results?, tool_name?,
-                  tool_args_valid?, cost, duration_ms},
-  "draft_state": {has_draft, draft_len_chars, claims, claims_with_evidence,
-                  code_blob?, code_hash?},
-  "rubric_status": {last_checked_step, coverage, missing_ids},
-  "timestamp_ms": int
-}
-
-Terminal record additionally has:
-  terminal: true, termination_reason: submit|max_steps|budget_exceeded|error,
-  final_rubric_score (filled by judge post-hoc),
-  task_max_steps, n_criteria (convenience for hms_detector).
-"""
 from __future__ import annotations
 
 import hashlib
@@ -47,7 +25,6 @@ class TrajectoryLogger:
     records: list = field(default_factory=list)
     _t0: float = field(default_factory=time.monotonic)
 
-    # Persistent state across steps
     draft_state: dict = field(default_factory=lambda: {
         "has_draft": False, "draft_len_chars": 0,
         "claims": [], "claims_with_evidence": [],
@@ -57,7 +34,6 @@ class TrajectoryLogger:
         "last_checked_step": None, "coverage": None, "missing_ids": None,
     })
 
-    # Per-episode aggregates
     total_cost: float = 0.0
 
     def log_step(
@@ -107,7 +83,6 @@ class TrajectoryLogger:
             "draft_state": dict(self.draft_state),
             "rubric_status": dict(self.rubric_status),
             "timestamp_ms": int(time.time() * 1000),
-            # Convenience denorm for downstream tools:
             "task_type": self.task_type,
             "available_tools": self.available_tools,
             "task_max_steps": self.max_steps,
@@ -120,7 +95,6 @@ class TrajectoryLogger:
 
     def finalize(self, *, termination_reason: str,
                  final_rubric_score: dict | None = None) -> dict:
-        # mark last record as terminal
         if not self.records:
             raise RuntimeError("cannot finalize an empty trajectory")
         last = self.records[-1]
@@ -132,7 +106,6 @@ class TrajectoryLogger:
 
     @staticmethod
     def _draft_text(draft_update: dict) -> str:
-        # Heuristic chars for non-code drafts
         text = draft_update.get("draft_text") or ""
         if isinstance(text, str):
             return text

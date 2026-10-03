@@ -1,17 +1,3 @@
-"""OpenAI-compatible chat-completions client wrapper for the harness project.
-
-All LLM calls in this project go through this wrapper.
-
-Reads credentials from env:
-  OPENAI_BASE_URL  (default: https://api.openai.com/v1)
-  OPENAI_API_KEY
-  OPENAI_MODEL     (default: gpt-5.4-mini)
-
-Pricing (approx, for cost tracking only; verify against your provider):
-  Input  : 0.25 USD / 1M tokens
-  Output : 2.00 USD / 1M tokens
-(gpt-5.4-mini placeholder rate; refine when real pricing confirmed.)
-"""
 from __future__ import annotations
 
 import json
@@ -29,7 +15,6 @@ log = logging.getLogger(__name__)
 DEFAULT_ENDPOINT = "https://api.openai.com/v1"
 DEFAULT_DEPLOYMENT = "gpt-5.4-mini"
 
-# Placeholder pricing for cost estimation. Refine for your provider/model.
 PRICE_INPUT_PER_1M = float(
     os.getenv("OPENAI_PRICE_INPUT_PER_1M")
     or os.getenv("AZURE_PRICE_INPUT_PER_1M", "0.25")
@@ -61,7 +46,6 @@ class CallResult:
 
 
 class LLMClient:
-    """Thin wrapper around any OpenAI-compatible chat-completions endpoint."""
 
     def __init__(
         self,
@@ -93,12 +77,11 @@ class LLMClient:
         self.timeout = timeout
         self.max_retries = max_retries
 
-        # Point the OpenAI SDK at the configured compatible base URL.
         self._client = OpenAI(
             base_url=self.endpoint,
             api_key=self.api_key,
             timeout=timeout,
-            max_retries=0,  # we do our own retry
+            max_retries=0,
         )
 
     @staticmethod
@@ -116,7 +99,6 @@ class LLMClient:
         seed: Optional[int] = None,
         extra: Optional[dict] = None,
     ) -> CallResult:
-        """Call chat.completions with retry. Returns CallResult."""
         params: dict[str, Any] = {
             "model": self.deployment,
             "messages": messages,
@@ -165,7 +147,7 @@ class LLMClient:
                 last_err = f"{type(e).__name__}: {e}"
                 log.warning("chat APIError attempt %d: %s", attempt, last_err)
                 time.sleep(min(2 ** attempt, 8))
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 last_err = f"{type(e).__name__}: {e}"
                 log.exception("chat unexpected error")
                 time.sleep(min(2 ** attempt, 8))

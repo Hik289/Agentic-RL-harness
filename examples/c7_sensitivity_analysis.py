@@ -1,13 +1,3 @@
-"""EarlySubmit (C.7) threshold sensitivity analysis.
-
-For each domain that has eval_records_{base,aw}.jsonl, re-score HMS_norm
-at three rushed-thresholds (0.25, 0.30, 0.35). Report:
-  - ΔHMS per (domain, threshold)
-  - EarlySubmit fired-rate per (domain, threshold, policy)
-
-This is a pure re-scoring pass: no new LLM calls. Tests the C.7 spec
-design space, not whether AW "wins" — we report all numbers honestly.
-"""
 from __future__ import annotations
 
 import json
@@ -24,7 +14,6 @@ from modules.hms_detector import compute_hms
 ROOT = Path(os.environ.get("AGENTICRLHARNESS_RESULTS", "./results"))
 THRESHOLDS = [0.25, 0.30, 0.35]
 
-# Source per-domain mapping: (subdir_name, output_label)
 DOMAIN_SOURCES = [
     ("main_knowledge_work_v2", "knowledge_work"),
     ("main_coding_v2", "coding"),
@@ -36,7 +25,6 @@ DOMAIN_SOURCES = [
 
 
 def score_records(records_jsonl_path: Path, threshold: float) -> tuple[float, float, dict, list[float]]:
-    """Return (hms_mean, hms_std, per-event-fired-counts, per-episode hms list)."""
     norms = []
     per_event = {}
     n_episodes = 0
@@ -77,7 +65,6 @@ def main():
             b_mean, b_std, b_events, _ = score_records(base_path, thr)
             a_mean, a_std, a_events, _ = score_records(aw_path, thr)
             d_hms = (a_mean - b_mean) if (a_mean is not None and b_mean is not None) else None
-            # ES fired rates
             b_es = b_events.get("EarlySubmit", {})
             a_es = a_events.get("EarlySubmit", {})
             b_es_rate = b_es["fired"] / b_es["applicable"] if b_es.get("applicable", 0) > 0 else None

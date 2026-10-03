@@ -1,14 +1,3 @@
-"""Anchor 1: OpenAI-compatible API stability check.
-
-100 serial calls + 10 concurrent calls. Reports:
-  * pass / fail counts
-  * p50 / p95 / p99 latency
-  * mean cost per call
-  * total cost
-  * failure modes (if any)
-
-Writes JSON to results.json next to this file.
-"""
 from __future__ import annotations
 
 import argparse
@@ -20,7 +9,6 @@ import sys
 import time
 from pathlib import Path
 
-# Local imports
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from harness.util.llm_client import LLMClient, CallResult
 

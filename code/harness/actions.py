@@ -1,14 +1,3 @@
-"""Action executors for the Base Harness.
-
-Each action is a pure function (Task, ExecCtx) -> ObservationDict that does
-the side effect (read file, query LLM, run code) and returns observation
-fields suitable for trajectory_logger.log_step(**obs).
-
-Base Harness uses a fixed scripted policy (no learned controller) -- the
-purpose is to verify that every action surface works end-to-end and that the
-trajectory is fully populated. The same action set will be used by
-RL-controlled harnesses later.
-"""
 from __future__ import annotations
 
 import json
@@ -36,7 +25,6 @@ class Task:
     cost_budget: float
     metadata: dict
     rubric: dict
-    # Inputs cached on first read
     inputs: dict = field(default_factory=dict)
 
     @classmethod
@@ -58,7 +46,6 @@ class Task:
         )
 
     def load_inputs(self) -> dict:
-        """Return a dict {filename: text} for all input files."""
         if self.inputs:
             return self.inputs
         inputs_dir = self.task_dir / "inputs"
@@ -75,13 +62,7 @@ class Task:
         return result
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Actions
-# ─────────────────────────────────────────────────────────────────────────────
-
-
 def act_read_input(task: Task, *, input_id: str | None = None) -> dict:
-    """Read all task inputs (or one named). Returns observation dict."""
     inputs = task.load_inputs()
     if input_id:
         text = inputs.get(input_id, "")
@@ -92,7 +73,6 @@ def act_read_input(task: Task, *, input_id: str | None = None) -> dict:
         return dict(status="success",
                     summary=f"read {input_id} ({len(text)} chars)",
                     extracted_facts=facts, cost=0.0)
-    # Read all
     facts: list[str] = []
     for name, text in inputs.items():
         facts.extend(_extract_facts(text)[:5])
@@ -102,7 +82,6 @@ def act_read_input(task: Task, *, input_id: str | None = None) -> dict:
 
 
 def act_read_problem(task: Task) -> dict:
-    """Coding tasks: read problem statement + tests."""
     inputs = task.load_inputs()
     facts = [task.prompt[:200]]
     facts.extend([f"file:{k}" for k in inputs.keys()])
@@ -112,7 +91,6 @@ def act_read_problem(task: Task) -> dict:
 
 
 def act_search(task: Task, *, query: str = "") -> dict:
-    """Simulated search — pull from inputs (no real web)."""
     inputs = task.load_inputs()
     hits = []
     q = (query or task.prompt[:80]).lower()
@@ -133,7 +111,6 @@ def act_search(task: Task, *, query: str = "") -> dict:
 
 
 def act_search_memory(task: Task, *, query: str = "") -> dict:
-    """Long-memory simulated retrieval — same as search but tagged."""
     obs = act_search(task, query=query)
     obs["summary"] = "search_memory: " + obs["summary"]
     return obs
@@ -142,8 +119,6 @@ def act_search_memory(task: Task, *, query: str = "") -> dict:
 def act_use_tool(task: Task, *, tool_name: str | None = None,
                  tool_args: dict | None = None,
                  llm_client: LLMClient | None = None) -> dict:
-    """Generic tool invocation. For Base Harness we simulate calculators/PDF
-    readers/etc deterministically rather than going to network."""
     if tool_name is None:
         return dict(status="error", summary="no tool_name", cost=0.0,
                     tool_args_valid=False)
@@ -153,7 +128,6 @@ def act_use_tool(task: Task, *, tool_name: str | None = None,
     if tool_name == "calculator":
         expr = (tool_args or {}).get("expr", "")
         try:
-            # very small safe arith eval
             if not re.match(r"^[\d\s+\-*/().,]+$", expr):
                 return dict(status="error", summary="unsafe expr",
                             tool_name=tool_name, tool_args_valid=False, cost=0.0)
@@ -165,7 +139,6 @@ def act_use_tool(task: Task, *, tool_name: str | None = None,
             return dict(status="error", summary=str(e),
                         tool_name=tool_name, tool_args_valid=False, cost=0.0)
     if tool_name in ("read_pdf", "extract_table"):
-        # Simulate by reading inputs
         inputs = task.load_inputs()
         facts = []
         for name, text in inputs.items():
@@ -173,16 +146,11 @@ def act_use_tool(task: Task, *, tool_name: str | None = None,
         return dict(status="success", summary=f"{tool_name} OK",
                     tool_name=tool_name, tool_args_valid=True, cost=0.0,
                     extracted_facts=facts[:5])
-    # Generic fallback: return ok
     return dict(status="success", summary=f"{tool_name} OK",
                 tool_name=tool_name, tool_args_valid=True, cost=0.0)
 
 
 def act_run_tests(task: Task, *, code_blob: str) -> dict:
-    """Coding: execute user code + run pytest-style assertions.
-
-    Test files live in task.task_dir/inputs/code/test_*.py.
-    """
     inputs_dir = task.task_dir / "inputs" / "code"
     test_files = sorted(inputs_dir.glob("test_*.py")) if inputs_dir.exists() else []
     if not test_files:
@@ -195,12 +163,10 @@ def act_run_tests(task: Task, *, code_blob: str) -> dict:
         passed, failed, errors = 0, 0, []
         for tf in test_files:
             test_code = tf.read_text()
-            # We assume the function name to test is the first identifier mentioned in assert
             try:
                 ns: dict = {}
                 exec(code_blob, ns)
                 exec(test_code, ns)
-                # Treat each assertion line as one test
                 lines = [l for l in test_code.splitlines() if l.strip().startswith("assert")]
                 passed += len(lines) or 1
             except AssertionError as e:
@@ -224,7 +190,6 @@ def act_draft_solution(
     llm_client: LLMClient | None = None,
     max_tokens: int = 400,
 ) -> dict:
-    """Use LLM to write the deliverable."""
     client = llm_client or get_default_client()
     schema_hint = _schema_hint_for(task)
     sys_msg = (
@@ -248,7 +213,6 @@ def act_draft_solution(
                     cost=0.0)
     text = res.text or ""
     claims = _extract_claims(text)
-    # Heuristic: any claim that overlaps with a fact gets "evidence".
     cwe = []
     facts_join = " ".join(facts_so_far).lower()
     for i, c in enumerate(claims):
@@ -274,7 +238,6 @@ def act_write_code(
     llm_client: LLMClient | None = None,
     max_tokens: int = 400,
 ) -> dict:
-    """Use LLM to write code for a coding task."""
     client = llm_client or get_default_client()
     tests = ""
     code_dir = task.task_dir / "inputs" / "code"
@@ -309,7 +272,6 @@ def act_write_code(
 def act_revise_code(task: Task, *, code_blob: str, test_errors: list,
                     llm_client: LLMClient | None = None,
                     max_tokens: int = 400) -> dict:
-    """Ask LLM to fix code given failing tests."""
     client = llm_client or get_default_client()
     sys_msg = "You are fixing a buggy function. Output ONLY the corrected python code, no markdown."
     user_msg = (
@@ -334,11 +296,6 @@ def act_revise_code(task: Task, *, code_blob: str, test_errors: list,
 
 def act_check_rubric(task: Task, *, draft_state: dict,
                      llm_client: LLMClient | None = None) -> dict:
-    """Local rubric self-check (no LLM call needed for Base Harness).
-
-    Approximates coverage as fraction of criteria descriptions whose
-    keywords appear in the draft text. Cheap and deterministic.
-    """
     criteria = task.rubric.get("criteria", [])
     text = (draft_state.get("draft_text")
             or draft_state.get("code_blob") or "").lower()
@@ -346,7 +303,6 @@ def act_check_rubric(task: Task, *, draft_state: dict,
     cov_hits = 0
     for c in criteria:
         desc = (c.get("description") or "").lower()
-        # extract content words
         words = [w for w in re.findall(r"[a-zA-Z']+", desc) if len(w) > 4]
         hit = sum(1 for w in words if w in text)
         if words and hit / len(words) >= 0.3:
@@ -363,8 +319,6 @@ def act_check_rubric(task: Task, *, draft_state: dict,
 
 
 def act_verify_solution(task: Task, *, draft_state: dict) -> dict:
-    """Cheap structural verifier — checks format & non-empty draft.
-    Real verification is done at end-of-episode via reward_aggregator."""
     text = draft_state.get("draft_text") or draft_state.get("code_blob") or ""
     if not text or len(text) < 30:
         return dict(status="error", summary="draft too short / missing",
@@ -373,13 +327,11 @@ def act_verify_solution(task: Task, *, draft_state: dict) -> dict:
 
 
 def act_observe(task: Task) -> dict:
-    """No-op observation step (planning / generic)."""
     return dict(status="success", summary="observed task state", cost=0.0)
 
 
 def act_plan(task: Task, *, llm_client: LLMClient | None = None,
              max_tokens: int = 200) -> dict:
-    """Planning: ask LLM for a short plan outline."""
     client = llm_client or get_default_client()
     res = client.chat(
         messages=[
@@ -400,13 +352,7 @@ def act_submit() -> dict:
     return dict(status="success", summary="submit", cost=0.0)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Helpers
-# ─────────────────────────────────────────────────────────────────────────────
-
-
 def _extract_facts(text: str, max_facts: int = 8) -> list:
-    """Extract sentence-level facts heuristically."""
     sentences = re.split(r"(?<=[.!?])\s+", text)
     out = []
     for s in sentences:
@@ -419,7 +365,6 @@ def _extract_facts(text: str, max_facts: int = 8) -> list:
 
 
 def _extract_claims(text: str) -> list:
-    """Extract factual-looking claims from a draft."""
     sentences = re.split(r"(?<=[.!?])\s+", text)
     claims = [s.strip() for s in sentences
               if 20 <= len(s.strip()) <= 250
@@ -432,7 +377,6 @@ def _extract_claims(text: str) -> list:
 
 
 def _strip_code_fence(text: str) -> str:
-    # Strip ``` blocks if present
     m = re.search(r"```(?:python)?\s*(.*?)```", text, flags=re.S)
     if m:
         return m.group(1).strip()

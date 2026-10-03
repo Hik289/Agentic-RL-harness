@@ -1,42 +1,3 @@
-"""Anchor 5 attempt 2 (Fork-α) — Offline AW vs Base Harness on toy coding.
-
-Fork-α defines G as the structural rubric_score_norm
-from harness/submission.py (test_runner + format + regex + cost_budget verifiers),
-NOT the LLM judge. This is the readme §14 task-specific verifier path, which
-is the canonical reward source for coding. Both Base and AW use the same G,
-so Base and AW use identical evaluation settings.
-
-Why not judge: attempt 1 + smoke showed gpt-5.4-mini one-shots all toy
-coding tasks (test_pass_rate ≈ 1.0), and judge mode="reward" cannot see
-test results, so the judge G ≈ 1.0 ± noise — noise is "judge uncertainty
-reading code" not "code correctness". structural_score (which executes the
-tests) provides the actual correctness signal.
-
-Plan:
-  - 10 coding tasks (coding_000 .. coding_009)
-  - Behavioral policy = perturbed Base Harness (eps=0.25) — 20 rollouts/task
-    × 10 tasks = 200 training trajectories
-  - G_i = structural rubric_score_norm (test_runner-based)
-  - Train MLPPolicy (1-hidden-layer 64 unit, action space size 8) via
-    advantage-weighted regression (readme §16), 3 seeds
-  - Eval Base vs AW on the same 10 tasks × 3 rollouts × 3 seeds with the
-    SAME structural G; report mean ± std + Welch t-test
-  - PASS = (AW mean) − (Base mean) ≥ 0.05 over 3 seeds
-
-Required report diagnostics:
-  - buffer G distribution: mean / std / unique / saturation%
-  - AW weight distribution: mean / max / std
-  - HMS 7-event fired-rate + HMS_norm mean ± std for Base vs AW
-    (paper §5 evidence: did AW learn process maturity in addition to
-    final G, or only final G?)
-
-Outputs:
-  - code/anchor_results/anchor_5_results.json   summary table + per-task numbers
-  - code/anchor_results/anchor_5_training.json  training diagnostics
-  - code/anchor_results/anchor_5_buffer.jsonl   per-rollout (G, n_steps, term)
-  - code/anchor_results/anchor_5_buffer_records.jsonl  full B.1 records
-  - logs/anchor_5.log
-"""
 from __future__ import annotations
 
 import argparse
@@ -53,7 +14,7 @@ sys.path.insert(0, str(THIS.parents[1]))
 
 from harness.actions import Task
 from harness.util.llm_client import LLMClient
-from reward.rubric_judge import RubricJudge  # noqa: F401 (kept for future per-domain switch)
+from reward.rubric_judge import RubricJudge
 from rl.coding_harness import (run_episode_with_policy,
                                  base_harness_policy,
                                  perturbed_base_policy,
@@ -76,11 +37,6 @@ def load_coding_tasks(task_root: Path) -> list[Task]:
 
 def collect_buffer(tasks: list[Task], client: LLMClient,
                    *, n_rollouts: int, eps: float, seed: int) -> tuple[list[dict], float]:
-    """Collect rollouts; G := structural rubric_score_norm (Fork-α).
-
-    No judge calls during collection (judge is not the reward source any
-    more). All cost here is LLM cost inside write_code / revise_code.
-    """
     behavioral = perturbed_base_policy(eps=eps, seed=seed)
     buffer = []
     llm_cost = 0.0
@@ -96,7 +52,7 @@ def collect_buffer(tasks: list[Task], client: LLMClient,
                 "rollout": r,
                 "records": logger.records,
                 "structural_score": scored["rubric_score_norm"],
-                "return_G": scored["rubric_score_norm"],  # Fork-α: G = structural
+                "return_G": scored["rubric_score_norm"],
             })
     return buffer, llm_cost
 
@@ -104,14 +60,6 @@ def collect_buffer(tasks: list[Task], client: LLMClient,
 def eval_policy(label: str, tasks: list[Task], policy_fn_factory,
                 client: LLMClient,
                 *, n_rollouts: int, n_seeds: int) -> tuple[dict, float, list[dict]]:
-    """Run eval with `n_seeds` independent seeds; each runs n_rollouts per task.
-
-    policy_fn_factory(seed) → PolicyFn
-    G := structural rubric_score_norm (Fork-α).
-
-    Returns (summary dict, llm_cost, all_records_list).  all_records_list
-    is the full B.1 trajectory of every rollout (needed for HMS scoring).
-    """
     per_seed_overall = []
     per_seed_per_task = {tid: [] for tid in TASK_IDS}
     llm_cost = 0.0
@@ -161,12 +109,9 @@ def welch_t_two_sample(a: list[float], b: list[float]) -> dict:
     va, vb = statistics.variance(a), statistics.variance(b)
     na, nb = len(a), len(b)
     t = (ma - mb) / max(((va / na) + (vb / nb)) ** 0.5, 1e-12)
-    # Welch df
     num = ((va / na) + (vb / nb)) ** 2
     den = (va ** 2) / ((na ** 2) * (na - 1)) + (vb ** 2) / ((nb ** 2) * (nb - 1))
     df = num / den if den > 0 else 1.0
-    # Approximate two-sided p via normal CDF (Welch+small df is rough; we
-    # only report rounded direction since n is tiny)
     import math
     z = abs(t)
     p = 2 * 0.5 * math.erfc(z / (2 ** 0.5))
@@ -174,10 +119,6 @@ def welch_t_two_sample(a: list[float], b: list[float]) -> dict:
 
 
 def hms_summary(all_records: list[dict]) -> dict:
-    """Aggregate HMS over a set of rollouts.
-
-    Returns per-episode hms_norm + per-event fired_rate / applicable_rate.
-    """
     from modules.hms_detector import compute_hms, EVENT_CHECKERS
     norms = []
     per_event = {name: {"fired": 0, "applicable": 0, "total": 0}
@@ -212,14 +153,6 @@ def hms_summary(all_records: list[dict]) -> dict:
 
 def calibrate_c7_threshold(buffer: list[dict], judge_norms: dict[str, list[float]],
                            ) -> dict:
-    """Use behavioral trajectories to study C.7 EarlySubmit predicted vs
-    actual judge score; suggest a tighter threshold.
-
-    For each rollout: detector_C7_fired = (norm<0.5 AND t_submit<=0.4*max)
-                                       OR (missing>=0.5*n_crit AND t_submit<max)
-    Versus 'actual_bad' = (G < median(G) - 0.15).
-    Sweep two parameters and report precision/recall.
-    """
     from modules.hms_detector import check_event_C7
     rows = []
     all_G = [e["return_G"] for e in buffer]
@@ -266,7 +199,6 @@ def main():
     out_dir = THIS.parent
     t0 = time.monotonic()
 
-    # ── Step 1: collect behavioral buffer (Fork-α: no judge) ──
     print(f"[anchor_5] collecting {args.n_rollouts_collect} rollouts × {len(tasks)} tasks = "
           f"{args.n_rollouts_collect * len(tasks)} traj, eps={args.eps}", flush=True)
     buffer, collect_llm_cost = collect_buffer(
@@ -276,7 +208,6 @@ def main():
     print(f"  buffer size={len(buffer)}  llm_cost=${collect_llm_cost:.4f}  "
           f"elapsed={time.monotonic()-t0:.1f}s", flush=True)
 
-    # Save behavioral buffer summaries
     with (out_dir / "anchor_5_buffer.jsonl").open("w") as f:
         for ent in buffer:
             f.write(json.dumps({
@@ -288,7 +219,6 @@ def main():
                 "term_reason": (ent["records"][-1].get("termination_reason")
                                 if ent["records"] else None),
             }) + "\n")
-    # And full records (for HMS / debugging / paper supp materials)
     with (out_dir / "anchor_5_buffer_records.jsonl").open("w") as f:
         for ent in buffer:
             f.write(json.dumps({
@@ -297,7 +227,6 @@ def main():
                 "records": ent["records"],
             }, default=str) + "\n")
 
-    # Buffer G distribution
     buf_Gs = [e["return_G"] for e in buffer]
     buf_mean = statistics.fmean(buf_Gs)
     buf_std = statistics.stdev(buf_Gs) if len(buf_Gs) > 1 else 0.0
@@ -306,7 +235,6 @@ def main():
     print(f"  buffer G: mean={buf_mean:.4f} std={buf_std:.4f} unique={buf_unique} "
           f"sat@1.0={buf_sat_at_1:.2%}", flush=True)
 
-    # ── Step 2: train AW policy 3 seeds ──
     n_criteria_by_task = {t.task_id: len(t.rubric.get("criteria", [])) for t in tasks}
     aw_polices = []
     aw_diags = []
@@ -323,7 +251,6 @@ def main():
     (out_dir / "anchor_5_training.json").write_text(
         json.dumps({"diagnostics": aw_diags}, indent=2, default=str))
 
-    # ── Step 3: eval Base + AW (Fork-α: G = structural; no judge) ──
     print(f"[anchor_5] evaluating Base + AW on {len(tasks)} tasks × "
           f"{args.n_rollouts_eval} rollouts × {args.n_eval_seeds} seeds each",
           flush=True)
@@ -346,13 +273,11 @@ def main():
     welch = welch_t_two_sample(aw_summary["per_seed_overall"],
                                 base_summary["per_seed_overall"])
 
-    # ── Step 4: HMS aggregation on evaluation rollouts ──
     print(f"[anchor_5] computing HMS for {len(base_records)} Base + "
           f"{len(aw_records)} AW eval rollouts", flush=True)
     base_hms = hms_summary(base_records)
     aw_hms = hms_summary(aw_records)
 
-    # ── Step 5: C.7 calibration on (now meaningful) behavioral buffer ──
     c7_calib = calibrate_c7_threshold(buffer, {})
 
     elapsed = time.monotonic() - t0

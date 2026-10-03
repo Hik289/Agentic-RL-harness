@@ -1,21 +1,3 @@
-"""RUNNING_MAIN driver — per-domain Base vs AW main-table experiment.
-
-Fork-α' configuration:
-  - Universal structural verifier (readme §14): G = submission.py
-    rubric_score_norm for ALL 6 domains. No LLM judge in train or eval.
-  - 100 task / domain (data/synthetic_tasks_main/{domain}/)
-  - stratified 80/20 train/eval split by metadata.difficulty (easy/standard/hard)
-  - 20 rollouts/task in train buffer (1600 collect/policy)
-  - 3 seeds × 3 rollouts/task on eval set (180 eval/policy)
-  - Base vs Offline AW (perturbed ε=0.25 behavioral)
-  - paired bootstrap p-value on rollout-level (n = n_eval_task × n_rollouts × n_seeds)
-  - reports: ΔG mean ± std, ΔHMS, per-event fired-rate, buffer + weight diag
-
-Usage:
-  python running_main_driver.py --domain knowledge_work
-  python running_main_driver.py --domain coding
-  ...
-"""
 from __future__ import annotations
 
 import argparse
@@ -35,7 +17,6 @@ sys.path.insert(0, str(THIS.parents[1]))
 from harness.actions import Task
 from harness.util.llm_client import LLMClient
 
-# Per-domain harness modules
 from rl import coding_harness as cod
 from rl import kw_harness as kw
 from rl import generic_harness as gen
@@ -55,7 +36,6 @@ from modules.hms_detector import compute_hms, EVENT_CHECKERS
 
 
 def _generic_factory(domain: str):
-    """Build per-domain config for the generic harness."""
     return {
         "run_episode": lambda task, policy_fn, *, client, rng,
                               max_steps_override=None: gen.run_episode_with_policy(
@@ -70,8 +50,6 @@ def _generic_factory(domain: str):
                             gen.trajectory_to_features(recs, n_crit, d))(),
     }
 
-
-# ── Per-domain config ────────────────────────────────────────────────────
 
 DOMAIN_CONFIG = {
     "coding": {
@@ -96,7 +74,6 @@ DOMAIN_CONFIG = {
     "multi_tool": _generic_factory("multi_tool"),
     "long_memory": _generic_factory("long_memory"),
     "planning": _generic_factory("planning"),
-    # τ-bench retail tasks adapted to KW deliverable format
     "tau_bench_retail": {
         "run_episode": kw.run_episode_with_policy,
         "base_policy": kw.base_harness_policy,
@@ -126,13 +103,10 @@ DOMAIN_CONFIG = {
     },
 }
 
-# Mapping domain → metadata.task_type prefix for loading from
-# synthetic_tasks_main/{domain}/{domain}_NNN/.
 TASK_ROOT = (Path(os.environ.get("AGENTICRLHARNESS_DATA", "./data")) / "/synthetic_tasks_main".lstrip("/"))
 
 
 def load_domain_tasks(domain: str) -> list[Task]:
-    """Load all tasks for a domain in numerical id order."""
     domain_dir = TASK_ROOT / domain
     if not domain_dir.exists():
         raise FileNotFoundError(domain_dir)
@@ -147,7 +121,6 @@ def load_domain_tasks(domain: str) -> list[Task]:
 
 def stratified_split(tasks: list[Task], train_frac: float = 0.8,
                      seed: int = 42) -> tuple[list[Task], list[Task]]:
-    """Stratify by metadata.difficulty (easy/standard/hard)."""
     rng = random.Random(seed)
     strata: dict[str, list[Task]] = {}
     for t in tasks:
@@ -253,11 +226,6 @@ def eval_policy(domain: str, label: str, tasks: list[Task],
 def paired_bootstrap(base_Gs: list[float], aw_Gs: list[float],
                       n_resamples: int = 5000,
                       seed: int = 0) -> dict:
-    """Rollout-level paired bootstrap on Δ = aw - base.
-
-    Inputs are aligned lists of length n; output:
-       mean_delta, p_two_sided (H0: Δ=0), ci95.
-    """
     assert len(base_Gs) == len(aw_Gs)
     n = len(base_Gs)
     if n < 2:
@@ -266,13 +234,11 @@ def paired_bootstrap(base_Gs: list[float], aw_Gs: list[float],
     obs_mean = sum(deltas) / n
     rng = random.Random(seed)
     centered = [d - obs_mean for d in deltas]
-    # H0: Δ=0; bootstrap centered deltas
     null_means = []
     for _ in range(n_resamples):
         s = sum(centered[rng.randrange(n)] for _ in range(n)) / n
         null_means.append(s)
     p = sum(1 for m in null_means if abs(m) >= abs(obs_mean)) / n_resamples
-    # 95% CI from non-centered bootstrap
     boot_means = []
     for _ in range(n_resamples):
         s = sum(deltas[rng.randrange(n)] for _ in range(n)) / n
@@ -348,7 +314,6 @@ def main():
     client = LLMClient()
     t0 = time.monotonic()
 
-    # ── Step 0: load + stratified split ──
     all_tasks = load_domain_tasks(args.domain)
     if args.eval_task_ids:
         eval_ids = set(args.eval_task_ids.split(","))
@@ -373,7 +338,6 @@ def main():
     out_dir = THIS.parent / f"main_{args.domain}{args.output_tag}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── Step 1: collect behavioral buffer (or resume) ──
     if args.resume_buffer:
         print(f"[main:{args.domain}] resuming from buffer_records {args.resume_buffer}",
               flush=True)
@@ -395,7 +359,6 @@ def main():
         )
         print(f"  buffer size={len(buffer)}  llm_cost=${collect_cost:.4f}  "
               f"elapsed={time.monotonic()-t0:.1f}s", flush=True)
-        # Write buffer summaries
         with (out_dir / "buffer.jsonl").open("w") as f:
             for ent in buffer:
                 f.write(json.dumps({
@@ -406,7 +369,6 @@ def main():
                     "term_reason": (ent["records"][-1].get("termination_reason")
                                     if ent["records"] else None),
                 }) + "\n")
-        # Write full records buffer for resume
         with (out_dir / "buffer_records.jsonl").open("w") as f:
             for ent in buffer:
                 f.write(json.dumps({
@@ -424,7 +386,6 @@ def main():
     print(f"  buffer G: mean={buf_mean:.4f}  std={buf_std:.4f}  "
           f"unique={buf_unique}  sat@1.0={buf_sat_at_1:.2%}", flush=True)
 
-    # ── Step 2: train AW 3 seeds ──
     n_criteria_by_task = {t.task_id: len(t.rubric.get("criteria", []))
                           for t in train_tasks}
     aw_policies = []
@@ -444,7 +405,6 @@ def main():
     (out_dir / "training.json").write_text(
         json.dumps({"diagnostics": aw_diags}, indent=2, default=str))
 
-    # ── Step 3: eval Base + AW on EVAL set (stratified) ──
     print(f"[main:{args.domain}] eval on {len(eval_tasks)} tasks × "
           f"{args.n_rollouts_eval} rollouts × {args.n_eval_seeds} seeds = "
           f"{len(eval_tasks)*args.n_rollouts_eval*args.n_eval_seeds}/policy",
@@ -466,7 +426,6 @@ def main():
     aw_std = aw_summary["std_over_seeds"]
     delta = aw_mean - base_mean
 
-    # paired bootstrap (align by (task, rollout, seed))
     base_Gs = sorted(base_summary["detail"],
                      key=lambda r: (r["seed"], r["task_id"], r["rollout"]))
     aw_Gs = sorted(aw_summary["detail"],
@@ -477,12 +436,10 @@ def main():
     pass_5pp = (delta >= 0.05) and (boot.get("p_two_sided") is not None
                                      and boot["p_two_sided"] < 0.05)
 
-    # eval-set saturation
     eval_all_Gs = [r["G"] for r in base_summary["detail"]] + \
                   [r["G"] for r in aw_summary["detail"]]
     sat_eval = sum(1 for g in eval_all_Gs if g >= 0.999) / max(len(eval_all_Gs), 1)
 
-    # HMS aggregation
     base_hms = hms_summary(base_records)
     aw_hms = hms_summary(aw_records)
 
@@ -530,12 +487,10 @@ def main():
     out_path = out_dir / "results.json"
     out_path.write_text(json.dumps(summary, indent=2, default=str))
 
-    # Per-task detail (for paper supp)
     (out_dir / "eval_detail_base.jsonl").write_text(
         "\n".join(json.dumps(d, default=str) for d in base_summary["detail"]))
     (out_dir / "eval_detail_aw.jsonl").write_text(
         "\n".join(json.dumps(d, default=str) for d in aw_summary["detail"]))
-    # Full eval records (B.1 trajectories) for HMS re-analysis
     with (out_dir / "eval_records_base.jsonl").open("w") as f:
         for entry in base_records:
             f.write(json.dumps({"label": entry["label"], "seed": entry["seed"],

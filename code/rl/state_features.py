@@ -1,20 +1,3 @@
-"""Numeric state feature extraction for the RL controller (readme §10).
-
-Coding-domain subset:
-  step_norm                = step / max_steps                      ∈ [0,1]
-  has_draft                = float 0/1
-  draft_len_norm           = min(draft_len_chars / 500, 1.0)
-  rubric_coverage          ∈ [0,1]  (0 if never checked)
-  rubric_missing_norm      = #missing / max(n_criteria, 1)
-  error_count_norm         = error_count / max_steps
-  cost_so_far_norm         = cost_so_far / cost_budget
-  remaining_steps_norm     = (max_steps - step) / max_steps
-  last_test_pass_rate      ∈ [0,1]  (-1 if no test yet)
-  last_test_fail_count_norm= last_failed / 5 clipped to 1
-  + one-hot last_action over CODING_ACTION_SPACE (8 dim)
-
-Total dimension: 10 + 8 = 18.
-"""
 from __future__ import annotations
 
 from typing import Any
@@ -31,7 +14,7 @@ CODING_ACTION_SPACE = [
 ]
 
 ACTION_TO_IDX = {a: i for i, a in enumerate(CODING_ACTION_SPACE)}
-STATE_DIM = 10 + len(CODING_ACTION_SPACE)  # 18
+STATE_DIM = 10 + len(CODING_ACTION_SPACE)
 
 
 def featurize_state(*, step: int, max_steps: int,
@@ -72,11 +55,6 @@ def featurize_state(*, step: int, max_steps: int,
 
 def trajectory_to_features(records: list, action_space: list,
                             n_criteria: int) -> list[tuple[list[float], int]]:
-    """Convert a trajectory into (state, action_idx) pairs.
-
-    The state at index t is what the policy saw BEFORE taking action a_t,
-    i.e. computed from records[:t]; action_idx = index of records[t].action.
-    """
     pairs = []
     error_count = 0
     last_action = None
@@ -103,7 +81,6 @@ def trajectory_to_features(records: list, action_space: list,
             last_test_results=last_test, n_criteria=n_criteria,
         )
         pairs.append((feats, ACTION_TO_IDX[action]))
-        # update running state
         obs = rec.get("observation") or {}
         ds = rec.get("draft_state") or {}
         rs = rec.get("rubric_status") or {}

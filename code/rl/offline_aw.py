@@ -1,17 +1,3 @@
-"""Offline Advantage-Weighted policy training (readme §16).
-
-Workflow:
-  1. Collect a buffer of (task_id, trajectory, return_G) tuples using a
-     behavioral policy (e.g. perturbed Base Harness).
-  2. For each task, compute baseline b(task) = mean return over trajectories
-     of that task; per-traj advantage A_i = G_i - b(task_i).
-  3. Per-traj weight w_i = clip(exp(A_i / temperature), w_min, w_max).
-  4. Convert each step into (state, action_idx, weight) — all steps within
-     a trajectory inherit w_i.
-  5. Train a 1-layer MLP policy with weighted cross-entropy + entropy reg.
-
-Default hyperparameters from readme §16.6.
-"""
 from __future__ import annotations
 
 import math
@@ -23,9 +9,6 @@ import torch
 import torch.nn.functional as F
 
 from .policy import MLPPolicy
-# state_features module is domain-specific; caller provides a featurize
-# function via build_dataset(traj_featurizer=...). Backward compat: default
-# to the coding featurizer.
 from .state_features import trajectory_to_features as _coding_featurize
 
 
@@ -51,7 +34,6 @@ def _group_by_task(buffer: list[dict]) -> dict[str, list[dict]]:
 
 
 def compute_advantages(buffer: list[dict]) -> list[float]:
-    """Return per-entry advantage = G_i - b(task_id)."""
     by_task = _group_by_task(buffer)
     baseline = {tid: statistics.fmean(e["return_G"] for e in lst)
                 for tid, lst in by_task.items()}
@@ -61,11 +43,6 @@ def compute_advantages(buffer: list[dict]) -> list[float]:
 def build_dataset(buffer: list[dict], n_criteria_by_task: dict[str, int],
                   cfg: AWConfig,
                   traj_featurizer=None) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """Return (X states, y action_idx, w weights).
-
-    traj_featurizer(records, n_criteria) -> list[(state_vec, action_idx)]
-    Defaults to the coding featurizer for backward compat.
-    """
     if traj_featurizer is None:
         def traj_featurizer(records, n_criteria):
             return _coding_featurize(records, action_space=None, n_criteria=n_criteria)
@@ -113,10 +90,8 @@ def train_aw(buffer: list[dict], n_criteria_by_task: dict[str, int],
             xb, yb, wb = X[idx], y[idx], w[idx]
             logits = policy(xb)
             log_probs = F.log_softmax(logits, dim=-1)
-            # Weighted negative log-likelihood (action policy loss)
             nll = -log_probs.gather(1, yb.unsqueeze(1)).squeeze(1)
             policy_loss = (wb * nll).mean()
-            # Entropy bonus
             probs = F.softmax(logits, dim=-1)
             entropy = -(probs * log_probs).sum(dim=-1).mean()
             loss = policy_loss - cfg.entropy_coef * entropy

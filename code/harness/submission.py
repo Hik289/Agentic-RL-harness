@@ -1,8 +1,3 @@
-"""Submission finalizer — computes a post-hoc rubric_score for a trajectory.
-
-Base Harness uses a deterministic structural rubric evaluation rather than an
-LLM judge, keeping the score reproducible and free of API cost.
-"""
 from __future__ import annotations
 
 import re
@@ -30,7 +25,6 @@ def _format_schema_for(task_type: str) -> dict:
 def _struct_score(criterion: dict, draft_text: str, code_blob: str | None,
                   facts: list, test_results: dict | None,
                   task_type: str) -> float:
-    """Cheap deterministic scorer used by Base Harness."""
     max_score = float(criterion.get("max_score", 1.0))
     verifier = criterion.get("verifier", "")
     desc = (criterion.get("description") or "").lower()
@@ -47,10 +41,8 @@ def _struct_score(criterion: dict, draft_text: str, code_blob: str | None,
         tot = passed + failed
         return max_score * (passed / tot) if tot > 0 else 0.0
     if verifier == "cost_budget":
-        # Filled in by caller via aggregate; here use 1.0 if cheap text exists
         return max_score * (1.0 if text else 0.0)
     if verifier == "evidence_support":
-        # Reward proportional to number of input facts referenced
         if not facts:
             return 0.0
         hit = sum(1 for f in facts if any(t in text.lower()
@@ -65,21 +57,16 @@ def _struct_score(criterion: dict, draft_text: str, code_blob: str | None,
         hit = sum(1 for w in words if w in text.lower())
         return max_score * (hit / len(words))
     if verifier == "answer_correctness":
-        # No reference solver in Base Harness -> reward presence of an answer
-        # roughly aligned with focus question keywords
         words = [w for w in re.findall(r"[a-zA-Z']+", desc) if len(w) > 4]
         if not words:
             return max_score * (0.5 if text else 0.0)
         hit = sum(1 for w in words if w in text.lower())
-        # This lexical proxy cannot establish correctness, so cap it at 60%.
         return max_score * (hit / len(words)) * 0.6
     if verifier == "tool_call_valid":
-        # Decided by caller from trajectory; default 1.0 if any text
         return max_score * (1.0 if text else 0.0)
     if verifier == "plan_satisfies_constraints":
         return max_score * (1.0 if "steps" in text.lower()
                              or "step 1" in text.lower() else 0.0)
-    # default: heuristic — partial credit for non-empty
     return max_score * (0.5 if text else 0.0)
 
 
@@ -115,17 +102,15 @@ def score_trajectory(
         })
     rubric_blob = compute_rubric_score(per_crit)
 
-    # P_error: count error observations
     err_count = sum(1 for r in trajectory
                     if (r.get("observation") or {}).get("status") == "error")
     p_err = compute_error_penalty(err_count, task.max_steps)
     p_cost = cost_penalty(total_cost, task.cost_budget)
-    info_cov = min(len(facts_all) / 5.0, 1.0)  # crude info coverage
+    info_cov = min(len(facts_all) / 5.0, 1.0)
     rubric_cov = rubric_status.get("coverage") or 0.0
     p_early = compute_early_submit_penalty(
         information_coverage=info_cov, rubric_coverage=rubric_cov,
     )
-    # In structural mode, the normalized rubric score is also the verifier score.
     R_verify = rubric_blob["rubric_score_norm"]
     R_format = format_reward(text or code, _format_schema_for(task.task_type))
     R_task = rubric_blob["rubric_score_norm"]

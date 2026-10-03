@@ -1,16 +1,3 @@
-"""Format reward (readme §12.3).
-
-R_format ∈ {0, 0.5, 1.0}
-  1.0: 完全满足
-  0.5: 部分满足
-  0.0: 完全失败
-
-Supports schema_type:
-  - "markdown_sections": output is markdown, contains required headers (## or # level)
-  - "json"             : output is valid JSON and matches required top-level keys
-  - "csv"              : output is parseable CSV with required columns
-  - "plain"            : non-empty trimmed text
-"""
 from __future__ import annotations
 
 import csv
@@ -47,7 +34,6 @@ def _check_json(output: str, schema: dict) -> float:
     try:
         obj = json.loads(output.strip())
     except Exception:
-        # Try to extract first {...} blob
         m = re.search(r"\{.*\}", output, flags=re.S)
         if not m:
             return 0.0
@@ -105,10 +91,6 @@ _CHECKERS = {
 
 
 def format_reward(output: str, schema: dict | None = None) -> float:
-    """Return R_format ∈ {0.0, 0.5, 1.0}.
-
-    schema = {"schema_type": "markdown_sections"|"json"|"csv"|"plain", ...}
-    """
     if schema is None:
         schema = {"schema_type": "plain"}
     stype = schema.get("schema_type", "plain")

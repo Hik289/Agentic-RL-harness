@@ -1,15 +1,3 @@
-"""Anchor 3b — RubricJudge mode="reward" calibration on 60 toy GT.
-
-Before running anchor_5, verify that the reward-mode judge, which does not see
-``reference/*.md``, remains calibrated against annotators.
-
-Invariants (relaxed from anchor_3 because reward mode loses reference info):
-  - per-domain Spearman ρ ≥ 0.6
-  - macro mean ρ ≥ 0.7 (anchor_3 was 0.8)
-  - missing_items overlap ≥ 0.6 (anchor_3 was 0.7)
-
-Reuses anchor_3 evaluator with default_mode="reward".
-"""
 from __future__ import annotations
 
 import json

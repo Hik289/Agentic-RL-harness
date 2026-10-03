@@ -1,11 +1,3 @@
-"""Anchor 2: Base Harness end-to-end on one task per domain.
-
-Invariants:
-  * each trajectory has full B.1 fields (step, action, args, observation,
-    draft_state, rubric_status, terminal+termination_reason)
-  * submit_rate over 6 episodes > 80%  (= at least 5/6 reach submit)
-  * trajectories pass into hms_detector + score_trajectory without crashing
-"""
 from __future__ import annotations
 
 import json
@@ -15,7 +7,7 @@ import time
 from pathlib import Path
 
 THIS = Path(__file__).resolve()
-sys.path.insert(0, str(THIS.parents[1]))  # code/
+sys.path.insert(0, str(THIS.parents[1]))
 
 from harness.actions import Task
 from harness.agent import run_episode
@@ -55,7 +47,6 @@ def main():
                 "./data"))
     task_root = base / "synthetic_tasks"
     if not task_root.exists():
-        # fall back to hpc path
         task_root = (Path(os.environ.get("AGENTICRLHARNESS_DATA", "./data")) / "/synthetic_tasks".lstrip("/"))
     print(f"[anchor_2] task_root = {task_root}")
 
@@ -82,7 +73,6 @@ def main():
                             "ok": False, "error": str(e)})
             continue
 
-        # Validate per-record completeness
         missing_fields = []
         for rec in logger.records:
             m = _validate_record(rec)
@@ -94,7 +84,6 @@ def main():
         if terminated_with_submit:
             n_submit += 1
 
-        # Run HMS detector on the trajectory
         try:
             hms = compute_hms(logger.records)
             hms_ok = True
@@ -107,7 +96,6 @@ def main():
             hms_norm = None
             events_summary = {"error": str(e)}
 
-        # Save trajectory jsonl
         traj_path = out_dir / f"{domain}_{task_id}.jsonl"
         logger.to_jsonl(traj_path)
 

@@ -1,26 +1,3 @@
-"""Anchor 4: Reward aggregator numeric correctness.
-
-5 synthetic trajectories, each with a hand-computed expected reward, must match
-the aggregator output within 1e-6.
-
-The synthetic episodes cover:
-  ep_A: clean high-quality submit (no penalties)
-  ep_B: moderate submit, mild cost penalty
-  ep_C: errors + low rubric (heavy penalties)
-  ep_D: early submit (triggers P_early_submit)
-  ep_E: perfect rubric but cost overrun (cost penalty saturates)
-
-Each episode hand-computes:
-  R_rubric, R_verify, R_format, R_task, P_error, P_cost, P_early_submit
-  weighted contributions and R_total.
-The script asserts numerical equality with the aggregator output.
-Also exercises:
-  * compute_rubric_score (per-criterion → norm + missing_items)
-  * compute_error_penalty
-  * compute_early_submit_penalty
-  * format_reward over 3 schema types (markdown / json / csv)
-  * cost_penalty saturation
-"""
 from __future__ import annotations
 
 import json
@@ -43,12 +20,11 @@ from reward.cost_penalty import cost_penalty
 
 TOL = 1e-6
 
-C = DEFAULT_COEFS  # α=0.20, β=0.10, δ=0.20, γ=0.25, λ=0.05, μ=0.10
+C = DEFAULT_COEFS
 
 
 def _close(a: float, b: float, tol: float = TOL) -> bool:
     return math.isclose(a, b, rel_tol=0, abs_tol=tol)
-
 
 
 EPISODES = [
@@ -86,13 +62,11 @@ EPISODES = [
 
 
 def test_aggregate_reward() -> list[dict]:
-    """Verify aggregator on the 5 hand-computed episodes."""
     rows = []
     for label, inputs, expected in EPISODES:
         out = aggregate_reward(**inputs)
         ok = _close(out.R_total, expected)
 
-        # Also independently re-derive R_total from the breakdown to double-check
         recompute = (
             inputs["R_rubric"]
             + C["alpha"] * inputs["R_verify"]
@@ -133,17 +107,12 @@ def test_aggregate_reward() -> list[dict]:
 
 
 def test_rubric_aggregation() -> dict:
-    """Hand-checked criterion aggregation."""
-    # Four criteria with total_max=7.5, matching the knowledge-work task schema.
     criteria = [
         dict(id="c1", score=2.4, max_score=3.0, missing=False, category="correctness"),
         dict(id="c2", score=1.6, max_score=2.0, missing=False, category="evidence"),
         dict(id="c3", score=0.0, max_score=1.5, missing=True,  category="completeness"),
         dict(id="c4", score=1.0, max_score=1.0, missing=False, category="format"),
     ]
-    # raw = 2.4+1.6+0+1.0 = 5.0
-    # total = 7.5
-    # norm = 5.0/7.5 = 0.666666...
     res = compute_rubric_score(criteria)
     raw_ok = _close(res["rubric_score_raw"], 5.0)
     norm_ok = _close(res["rubric_score_norm"], 5.0 / 7.5)
@@ -162,13 +131,12 @@ def test_rubric_aggregation() -> dict:
 
 
 def test_error_and_early() -> dict:
-    """Error normalization + early submit threshold."""
-    e1 = compute_error_penalty(3, 10)          # 0.3
-    e2 = compute_error_penalty(15, 10)         # clamp to 1.0
-    e3 = compute_error_penalty(0, 10)          # 0.0
-    es1 = compute_early_submit_penalty(information_coverage=0.40, rubric_coverage=0.90)  # triggers info
-    es2 = compute_early_submit_penalty(information_coverage=0.80, rubric_coverage=0.55)  # triggers rubric
-    es3 = compute_early_submit_penalty(information_coverage=0.80, rubric_coverage=0.80)  # neither
+    e1 = compute_error_penalty(3, 10)
+    e2 = compute_error_penalty(15, 10)
+    e3 = compute_error_penalty(0, 10)
+    es1 = compute_early_submit_penalty(information_coverage=0.40, rubric_coverage=0.90)
+    es2 = compute_early_submit_penalty(information_coverage=0.80, rubric_coverage=0.55)
+    es3 = compute_early_submit_penalty(information_coverage=0.80, rubric_coverage=0.80)
     out = {
         "error_3/10": e1, "error_15/10": e2, "error_0/10": e3,
         "early_low_info": es1, "early_low_rubric": es2, "early_safe": es3,
@@ -184,10 +152,10 @@ def test_error_and_early() -> dict:
 
 def test_cost_penalty() -> dict:
     out = {
-        "p_cost_0.2_1.0": cost_penalty(0.2, 1.0),     # 0.2
-        "p_cost_1.5_1.0": cost_penalty(1.5, 1.0),     # 1.0 (saturated)
-        "p_cost_neg_1.0": cost_penalty(-0.5, 1.0),    # 0.0 (clamped)
-        "p_cost_zero_budget": cost_penalty(0.5, 0.0), # 0.0 (no budget defined)
+        "p_cost_0.2_1.0": cost_penalty(0.2, 1.0),
+        "p_cost_1.5_1.0": cost_penalty(1.5, 1.0),
+        "p_cost_neg_1.0": cost_penalty(-0.5, 1.0),
+        "p_cost_zero_budget": cost_penalty(0.5, 0.0),
     }
     out["ok"] = (
         _close(out["p_cost_0.2_1.0"], 0.2)
@@ -201,10 +169,10 @@ def test_cost_penalty() -> dict:
 
 def test_format_reward() -> dict:
     md_good = "# Summary\nfoo\n## Findings\nbar\n## Recommendation\nbaz"
-    md_partial = "# Summary\nfoo"  # missing Findings + Recommendation
+    md_partial = "# Summary\nfoo"
     md_bad = "no headers at all just plain text"
     json_good = '{"answer": "x", "confidence": 0.8}'
-    json_partial = '{"answer": "x"}'  # missing confidence
+    json_partial = '{"answer": "x"}'
     json_bad = "not json {{{"
     csv_good = "id,name,value\n1,a,3"
     csv_partial = "id,name\n1,a"

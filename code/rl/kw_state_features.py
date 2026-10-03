@@ -1,9 +1,3 @@
-"""State feature extraction for the KW (knowledge_work_deliverable) domain.
-
-KW action space (per task.json):
-  read_material, extract_table, summarize_material, compare_evidence,
-  draft_deliverable, verify_evidence, check_rubric, submit
-"""
 from __future__ import annotations
 
 KW_ACTION_SPACE = [
@@ -18,7 +12,7 @@ KW_ACTION_SPACE = [
 ]
 
 ACTION_TO_IDX = {a: i for i, a in enumerate(KW_ACTION_SPACE)}
-STATE_DIM = 10 + len(KW_ACTION_SPACE)  # 18, same as coding
+STATE_DIM = 10 + len(KW_ACTION_SPACE)
 
 
 def featurize_state(*, step: int, max_steps: int,
@@ -39,7 +33,6 @@ def featurize_state(*, step: int, max_steps: int,
     cost_norm = min(cost_so_far / max(cost_budget, 1e-9), 1.0)
     rem_norm = max(0.0, (max_steps - step) / max(max_steps, 1))
     facts_norm = min(n_facts_collected / 10.0, 1.0)
-    # one extra dim: claims_with_evidence ratio
     claims = draft_state.get("claims") or []
     cwe = draft_state.get("claims_with_evidence") or []
     cwe_ratio = (len(cwe) / max(len(claims), 1)) if claims else 0.0

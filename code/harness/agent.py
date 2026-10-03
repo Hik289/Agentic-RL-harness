@@ -1,17 +1,3 @@
-"""Base Harness agent — fixed scripted policy that runs to submit on any task.
-
-Per-domain templates (action sequences):
-  knowledge_work : read_input → draft_solution → check_rubric → submit
-  coding         : read_problem → write_code → run_tests → revise_code? → submit
-  research       : search → search → draft_solution → check_rubric → submit
-  multi_tool     : observe → use_tool(read_pdf) → use_tool(extract_table)
-                   → use_tool(calculator) → draft_solution → check_rubric → submit
-  long_memory    : search_memory → search_memory → draft_solution → submit
-  planning       : observe → plan → verify_solution → submit
-
-Each step writes a fully populated trajectory record (per spec B.1) so HMS
-detector + reward aggregator can run end-to-end.
-"""
 from __future__ import annotations
 
 import logging
@@ -30,7 +16,6 @@ log = logging.getLogger(__name__)
 
 
 def _seq_for(task_type: str) -> list[tuple[str, dict]]:
-    """Return (action_name, args) sequence."""
     if task_type in ("knowledge_work", "knowledge_work_deliverable"):
         return [
             ("read_input", {}),
@@ -43,7 +28,6 @@ def _seq_for(task_type: str) -> list[tuple[str, dict]]:
             ("read_problem", {}),
             ("write_code", {}),
             ("run_tests", {}),
-            # Optionally a revise step is inserted dynamically (see run_episode)
             ("submit", {}),
         ]
     if task_type == "research":
@@ -78,13 +62,11 @@ def _seq_for(task_type: str) -> list[tuple[str, dict]]:
             ("verify_solution", {}),
             ("submit", {}),
         ]
-    # Fallback
     return [("observe", {}), ("draft_solution", {}), ("submit", {})]
 
 
 def _exec(action_name: str, task: Task, logger: TrajectoryLogger,
           client: LLMClient, args: dict) -> dict:
-    """Execute one action and return obs dict."""
     if action_name == "read_input":
         return A.act_read_input(task, **args)
     if action_name == "read_problem":
@@ -133,7 +115,6 @@ def run_episode(
     client: LLMClient | None = None,
     max_steps_override: int | None = None,
 ) -> tuple[TrajectoryLogger, dict]:
-    """Run one episode of Base Harness. Returns (logger, scored_result)."""
     client = client or get_default_client()
     max_steps = max_steps_override or task.max_steps
     n_criteria = len(task.rubric.get("criteria", []))
@@ -149,8 +130,6 @@ def run_episode(
     while seq_idx < len(seq) and len(logger.records) < max_steps:
         action_name, args = seq[seq_idx]
 
-        # Coding: if last run_tests had failures and we still have steps,
-        # insert revise_code + run_tests before submit (at most twice).
         if action_name == "submit" and task.task_type == "coding":
             last = next((r for r in reversed(logger.records)
                          if (r.get("observation") or {}).get("test_results")),
@@ -158,12 +137,10 @@ def run_episode(
             if last:
                 tr = (last.get("observation") or {}).get("test_results") or {}
                 if tr.get("failed", 0) > 0 and len(logger.records) <= max_steps - 3:
-                    # Splice in revise + rerun
                     seq.insert(seq_idx, ("revise_code", {}))
                     seq.insert(seq_idx + 1, ("run_tests", {}))
                     action_name, args = seq[seq_idx]
 
-        # Cost guard
         if logger.total_cost >= task.cost_budget:
             logger.log_step(action="submit",
                             args={}, status="success",
@@ -189,17 +166,14 @@ def run_episode(
             break
         seq_idx += 1
     else:
-        # exited loop without submit
         if not logger.records or not logger.records[-1].get("terminal"):
             logger.finalize(termination_reason="max_steps")
 
-    # Compute post-hoc score
     scored = score_trajectory(
         task=task, trajectory=logger.records,
         draft_state=logger.draft_state, rubric_status=logger.rubric_status,
         total_cost=logger.total_cost,
     )
-    # Attach to terminal record
     term = logger.records[-1]
     term["final_rubric_score"] = {
         "rubric_score_norm": scored["rubric_score_norm"],

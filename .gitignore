@@ -6,7 +6,6 @@ __pycache__/
 .env.*
 !.env.example
 
-# Local experiment artifacts
 data/
 results/
 outputs/
@@ -17,12 +16,10 @@ checkpoints/
 *.ckpt
 *.jsonl
 
-# Editor and notebook noise
 .ipynb_checkpoints/
 .vscode/
 .idea/
 
-# Shared research-artifact hygiene
 .AppleDouble
 ._*
 *.swp
@@ -39,3 +36,8 @@ logs/
 wandb/
 *.log
 *.tmp
+examples/anchor_*_results.json
+examples/anchor_5_training.json
+examples/anchor_5_buffer*.jsonl
+examples/trajectories/
+examples/main_*/

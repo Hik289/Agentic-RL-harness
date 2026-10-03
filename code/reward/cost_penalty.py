@@ -1,7 +1,3 @@
-"""Cost penalty (readme §12.6).
-
-P_cost = min(cost_so_far / cost_budget, 1.0)
-"""
 from __future__ import annotations
 
 

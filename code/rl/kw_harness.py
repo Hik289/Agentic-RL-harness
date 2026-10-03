@@ -1,12 +1,3 @@
-"""KW (knowledge_work_deliverable) harness: action loop driven by a policy.
-
-KW action space (8 actions): see kw_state_features.KW_ACTION_SPACE.
-
-Base policy template (matches harness/agent.py:_seq_for):
-  read_material → draft_deliverable → check_rubric → submit
-plus an optional `verify_evidence` and `extract_table` step from perturbed
-exploration.
-"""
 from __future__ import annotations
 
 import logging
@@ -33,11 +24,9 @@ def _exec_action(action: str, task: Task, logger: TrajectoryLogger,
     if action == "read_material":
         return A.act_read_input(task)
     if action == "extract_table":
-        # Re-use read_input with a focused summary (cheap, no LLM)
         return A.act_use_tool(task, tool_name="extract_table",
                                tool_args={}, llm_client=client)
     if action == "summarize_material":
-        # Light LLM summary of all read facts so far
         facts = []
         for r in logger.records:
             facts.extend((r.get("observation") or {}).get("extracted_facts") or [])
@@ -73,7 +62,6 @@ def action_mask(logger: TrajectoryLogger) -> list[bool]:
         return [False] * len(KW_ACTION_SPACE)
     mask = [True] * len(KW_ACTION_SPACE)
     if not has_draft:
-        # disallow check_rubric / verify_evidence / submit before there's a draft
         for a in ("check_rubric", "verify_evidence", "submit"):
             mask[ACTION_TO_IDX[a]] = False
     return mask
@@ -184,10 +172,7 @@ def run_episode_with_policy(task: Task, policy_fn: PolicyFn, *,
     return logger, scored
 
 
-# ── Policy factories ──────────────────────────────────────────────────────
-
 def base_harness_policy() -> PolicyFn:
-    """Fixed scripted policy: read_material → draft_deliverable → check_rubric → submit."""
     def _picker(state: list[float], mask: list[bool], ctx: EnvContext) -> str:
         last = ctx.last_action
         if last is None:

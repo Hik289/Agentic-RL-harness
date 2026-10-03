@@ -1,21 +1,3 @@
-"""Anchor 3 — Rubric Judge calibration on 60 toy GT.
-
-Pass criteria:
-  - per-domain Spearman ρ array (6 values) ALL ≥ 0.6
-  - macro mean ρ ≥ 0.8
-  - mid-tier-only macro Spearman ρ ≥ 0.5  (collapsed across domains; 18 mid GT)
-  - missing_items overlap with annotator >= 70%
-
-Implementation:
-  - For each of 60 GT we run judge ONCE (n_repeats=1, low temp default).
-    Single LLM call per task, all criteria scored together.
-  - Spearman computed on normalized total = total_score / max_total.
-  - missing_items overlap: judge.missing_items vs annotator-derived
-    "missing" set (criterion with score==0 in GT). Compute Jaccard-like
-    micro overlap = |J ∩ A| / max(|A|, 1) averaged over tasks where |A|>0.
-
-If parse failures > 5%, abort and report [异常].
-"""
 from __future__ import annotations
 
 import json
@@ -41,10 +23,6 @@ DOMAINS = ["knowledge_work", "coding", "research",
            "multi_tool", "long_memory", "planning"]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Spearman without scipy (rank + Pearson on ranks; handle ties via average rank)
-# ─────────────────────────────────────────────────────────────────────────────
-
 def _rank(xs: list[float]) -> list[float]:
     idx = sorted(range(len(xs)), key=lambda i: xs[i])
     ranks = [0.0] * len(xs)
@@ -53,7 +31,7 @@ def _rank(xs: list[float]) -> list[float]:
         j = i
         while j + 1 < len(idx) and xs[idx[j + 1]] == xs[idx[i]]:
             j += 1
-        avg = (i + j) / 2.0 + 1.0  # 1-based ranks
+        avg = (i + j) / 2.0 + 1.0
         for k in range(i, j + 1):
             ranks[idx[k]] = avg
         i = j + 1
@@ -73,10 +51,6 @@ def spearman(xs: list[float], ys: list[float]) -> float | None:
     return num / (dx ** 0.5 * dy ** 0.5)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Load helpers
-# ─────────────────────────────────────────────────────────────────────────────
-
 def load_task(task_id: str) -> dict | None:
     domain = task_id.rsplit("_", 1)[0]
     td = TASK_ROOT / domain / task_id
@@ -84,7 +58,6 @@ def load_task(task_id: str) -> dict | None:
         return None
     tj = json.loads((td / "task.json").read_text())
     rj = json.loads((td / "rubric.json").read_text())
-    # Build a short inputs summary (first 200 chars of each input file)
     inputs_summary = ""
     in_dir = td / "inputs"
     if in_dir.exists():
@@ -97,7 +70,6 @@ def load_task(task_id: str) -> dict | None:
                 except Exception:
                     pass
         inputs_summary = "\n".join(summary_lines)[:1800]
-    # Also include reference/answer.md if present (gives judge expected answer / constraints)
     ref_dir = td / "reference"
     if ref_dir.exists():
         ref_chunks = []
@@ -116,17 +88,11 @@ def gt_missing_set(gt: dict) -> set:
     return {c["id"] for c in gt["criterion_scores"] if c["score"] == 0}
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Main
-# ─────────────────────────────────────────────────────────────────────────────
-
 def main():
     gt_rows = [json.loads(l) for l in GT_PATH.read_text().strip().splitlines()]
     print(f"loaded {len(gt_rows)} GT rows")
 
     client = LLMClient()
-    # CALIBRATION mode: judge may see reference/*.md (annotator did too).
-    # All production reward calls elsewhere must use the default reward mode.
     judge = RubricJudge(client=client, n_repeats=1,
                         max_completion_tokens=900,
                         default_mode="calibration")
@@ -152,7 +118,6 @@ def main():
         gt_norm = float(gt["total"]) / float(gt["max_total"])
         gt_missing = gt_missing_set(gt)
         judge_missing = set(report.missing_items) if ok else set()
-        # Per-criterion abs delta
         crit_deltas = {}
         if ok:
             gt_per = {c["id"]: c["score"] for c in gt["criterion_scores"]}
@@ -184,7 +149,6 @@ def main():
             elapsed = time.monotonic() - t0
             print(f"  [{i+1}/{len(gt_rows)}]  elapsed={elapsed:.1f}s  cost=${total_cost:.4f}  parse_fail={n_parse_fail}")
 
-    # Aggregate metrics
     parse_fail_rate = n_parse_fail / max(len(per_task), 1)
     if parse_fail_rate > 0.05:
         out_blob = {
@@ -198,7 +162,6 @@ def main():
         print(f"[anchor_3] ABORT due to parse failures > 5% -> {out_path}")
         return 2
 
-    # per-domain Spearman
     per_domain_spearman = {}
     for d in DOMAINS:
         rows = [r for r in per_task if r["domain"] == d and r["ok"]]
@@ -213,19 +176,16 @@ def main():
     macro_all_ge_0p6 = all((v["rho"] is not None and v["rho"] >= 0.6)
                             for v in per_domain_spearman.values())
 
-    # Mid-tier only macro Spearman (collapsed across domains)
     mid_rows = [r for r in per_task if r["tier"] == "mid" and r["ok"]]
     mid_rho = spearman([r["gt_norm"] for r in mid_rows],
                        [r["judge_norm"] for r in mid_rows])
 
-    # Missing items overlap (averaged over tasks where gt has >=1 missing)
     overlap_rates = []
     for r in per_task:
         if r["ok"] and r["gt_missing_size"] > 0:
             overlap_rates.append(r["missing_overlap_size"] / r["gt_missing_size"])
     missing_overlap_mean = statistics.fmean(overlap_rates) if overlap_rates else None
 
-    # per-tier mean abs delta in normalized score (diagnostic)
     by_tier_mae = {}
     for tier in ("high", "mid", "low"):
         rs = [abs(r["gt_norm"] - r["judge_norm"]) for r in per_task

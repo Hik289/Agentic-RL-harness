@@ -12,7 +12,7 @@ Code release for **Learning to Control LLM Agent Harnesses with Offline Reinforc
 The project treats an agentic harness as an outer-loop control policy over a fixed LLM executor. A lightweight offline RL controller learns when to read, draft, verify, revise, retrieve evidence, and submit by optimizing rubric-grounded trajectory returns rather than changing the underlying LLM.
 
 <p align="center">
-  <img src="figures/intuition.png" width="900" alt="Learning to Harness intuition">
+  <img src="figures/intuition.png" width="900" alt="Offline controller learning and harness execution">
 </p>
 
 ## At A Glance
@@ -78,13 +78,13 @@ python examples/anchor_6_hms_detector.py
 ```text
 .
 ├── code/
-│   ├── harness/              # base harness execution machinery
-│   ├── modules/              # Harness Maturity Score detector
-│   ├── reward/               # rubric, format, verifier, cost, and aggregate reward
-│   └── rl/                   # offline AW training and domain harnesses
-├── examples/                 # anchor checks, main driver, and analyses
-├── figures/                  # README diagrams
-├── .env.example              # API provider and path configuration
+│   ├── harness/
+│   ├── modules/
+│   ├── reward/
+│   └── rl/
+├── examples/
+├── figures/
+├── .env.example
 ├── requirements.txt
 └── README.md
 ```

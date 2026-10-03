@@ -1,17 +1,3 @@
-"""Anchor 6: HMS detector on 5 hand-constructed trajectories.
-
-Invariant: 5 trajectory × 7 metric = 35 individual judgments all correct.
-
-Each trajectory exercises a specific behavior:
-  ep_1_clean_submit          — all positive events fire, EarlySubmit not
-  ep_2_no_check_no_test      — coding task; never checked rubric, never ran tests
-  ep_3_claim_without_evidence — knowledge task; claims but no prior evidence
-  ep_4_failure_no_revise     — coding task; saw test failures, no revise
-  ep_5_planning_skip_check   — planning task without check_rubric (skipped events)
-
-For each ep we list the EXPECTED (fired, applicable) per event. The script
-asserts the detector matches all 35 judgments.
-"""
 from __future__ import annotations
 
 import json
@@ -23,10 +9,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from modules.hms_detector import compute_hms, EVENT_CHECKERS
 
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Trajectory builder helpers
-# ──────────────────────────────────────────────────────────────────────────────
 
 def _step(action, *, args=None, status="success", summary="", facts=None,
           test_results=None, draft=None, rubric_status=None,
@@ -83,25 +65,19 @@ def _set_meta(ep, task_type, available_tools, max_steps=10, cost_budget=1.0,
     return ep
 
 
-
 def build_ep1_clean_submit():
     AVAIL = ["read_input", "search", "draft_solution", "check_rubric",
              "verify_solution", "revise_solution", "submit", "use_tool"]
     ep = [
-        # 0: read_input (evidence)
         _step("read_input", facts=["fact_A", "fact_B"], cost=0.02),
-        # 1: search (evidence)
         _step("search", facts=["fact_C"], cost=0.03),
-        # 2: draft with claims supported
         _step("draft_solution",
               draft={"has_draft": True, "draft_len_chars": 500,
                      "claims": ["claim_A", "claim_B"],
                      "claims_with_evidence": [0, 1]}),
-        # 3: check_rubric → coverage 0.9, missing []
         _step("check_rubric",
               rubric_status={"last_checked_step": 3, "coverage": 0.9,
                               "missing_ids": []}),
-        # 4: submit
         _step("submit",
               draft={"has_draft": True, "draft_len_chars": 500,
                      "claims": ["claim_A", "claim_B"],
@@ -122,11 +98,10 @@ EP1_EXPECT = {
     "EvidenceBeforeClaim":  {"fired": True,  "applicable": True},
     "TestBeforeSubmit":     {"fired": True,  "applicable": False},
     "RevisionAfterFailure": {"fired": True,  "applicable": False},
-    "ValidToolUse":         {"fired": True,  "applicable": True},   # 1 search tool call, valid
+    "ValidToolUse":         {"fired": True,  "applicable": True},
     "StopWhenSufficient":   {"fired": True,  "applicable": True},
     "EarlySubmit":          {"fired": False, "applicable": True},
 }
-
 
 
 def build_ep2_no_check_no_test():
@@ -165,7 +140,6 @@ EP2_EXPECT = {
 }
 
 
-
 def build_ep3_claim_without_evidence():
     AVAIL = ["read_input", "search", "draft_solution", "check_rubric",
              "verify_solution", "submit"]
@@ -196,7 +170,6 @@ EP3_EXPECT = {
     "StopWhenSufficient":   {"fired": False, "applicable": True},
     "EarlySubmit":          {"fired": True,  "applicable": True},
 }
-
 
 
 def build_ep4_failure_no_revise():
@@ -232,7 +205,6 @@ EP4_EXPECT = {
     "StopWhenSufficient":   {"fired": False, "applicable": True},
     "EarlySubmit":          {"fired": True,  "applicable": True},
 }
-
 
 
 def build_ep5_planning():

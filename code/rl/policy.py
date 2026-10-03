@@ -1,15 +1,3 @@
-"""1-layer MLP policy over the coding action space.
-
-Pure PyTorch. CPU-only for anchor_5 (very small model, ~hundreds of
-samples). Forward: state ∈ R^18 → logits ∈ R^8.
-
-Inference returns a categorical distribution; the harness draws actions
-by sampling (training) or argmax (eval, optional).
-
-We also clip action probabilities so that an action mask can zero out
-disallowed actions (e.g. revise_code when no test has been run, or
-submit when no draft yet) and renormalize.
-"""
 from __future__ import annotations
 
 import math
@@ -54,7 +42,6 @@ def sample_action(logits: torch.Tensor, mask: list[bool],
         return int(torch.argmax(probs).item())
     if rng is None:
         return int(torch.multinomial(probs, 1).item())
-    # deterministic sample via rng (for reproducible eval)
     r = rng.random()
     csum = 0.0
     p_np = probs.tolist()
